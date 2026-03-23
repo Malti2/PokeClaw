@@ -1,1 +1,239 @@
-IyEvYmluL2Jhc2gKIyMgUG9rZUNsYXcg4oCUIG1hY09TIE9uYm9hcmRpbmcgJiBMYXVuY2ggU2NyaXB0CiMjCiMjIFVzYWdlOgojIyAgIGJhc2ggc3RhcnQtcG9rZWNsYXcuc2ggICAgICAgICAgICAjIGZ1bGwgaW50ZXJhY3RpdmUgb25ib2FyZGluZwojIyAgIGJhc2ggc3RhcnQtcG9rZWNsYXcuc2ggLS1xdWlldCAgICAjIHNraXAgcHJvbXB0cywgdXNlIGVudiB2YXJzIC8gZGVmYXVsdHMKIyMKIyMgRW52aXJvbm1lbnQgdmFyaWFibGVzIChhbGwgb3B0aW9uYWwpOgojIyAgIFBPS0VDTEFXX1BPUlQgICDigJQgcG9ydCAoZGVmYXVsdDogMzc0MSkKIyMgICBQT0tFQ0xBV19UT0tFTiAg4oCUIHNlY3JldCBhdXRoIHRva2VuCiMjICAgUE9LRUNMQVdfUk9PVFMgIOKAlCBjb21tYS1zZXBhcmF0ZWQgYWxsb3dlZCBwYXRocyAoZGVmYXVsdDogJEhPTUUpCiMjCnNldCAtZXVvIHBpcGVmYWlsCgpTQ1JJUFRfRElSPSIkKGNkICIkKGRpcm5hbWUgIiR7QkFTSF9TT1VSQ0VbMF19IikiICYmIHB3ZCkiClRVTk5FTF9MT0c9IiR7U0NSSVBUX0RJUn0vcG9rZWNsYXcubG9nIgpQT1JUPSIke1BPS0VDTEFXX1BPUlQ6LTM3NDF9IgpRVUlFVD1mYWxzZQoKIyDilIDilIAgUGFyc2UgZmxhZ3Mg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACmZvciBhcmcgaW4gIiRAIjsgZG8KICBjYXNlICIkYXJnIiBpbgogICAgLS1xdWlldHwtcSkgUVVJRVQ9dHJ1ZSA7OwogIGVzYWMKZG9uZQoKIyDilIDilIAgQmFubmVyIOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgAplY2hvICIiCmVjaG8gIvCfkL4gIFBva2VDbGF3IOKAlCBtYWNPUyBTZXR1cCAmIExhdW5jaCIKZWNobyAi4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSBIgoKIyDilIDilIAgU3RlcCAxOiBIb21lYnJldyDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKaWYgY29tbWFuZCAtdiBicmV3ICY+L2Rldi9udWxsOyB0aGVuCiAgZWNobyAi4pyFICBIb21lYnJldyBhbHJlYWR5IGluc3RhbGxlZCIKZWxzZQogIGlmIFsgIiRRVUlFVCIgPSB0cnVlIF07IHRoZW4KICAgIGVjaG8gIuKdjCAgSG9tZWJyZXcgbm90IGZvdW5kLiBSdW4gd2l0aG91dCAtLXF1aWV0IHRvIGluc3RhbGwgaXQuIgogICAgZWNobyAiICAgIE9yIGluc3RhbGwgbWFudWFsbHk6IGh0dHBzOi8vYnJldy5zaCIKICAgIGV4aXQgMQogIGZpCiAgZWNobyAiIgogIGVjaG8gIlN0ZXAgMSDigJQgSW5zdGFsbGluZyBIb21lYnJld+KApiIKICAvYmluL2Jhc2ggLWMgIiQoY3VybCAtZnNTTCBodHRwczovL3Jhdy5naXRodWJ1c2VyY29udGVudC5jb20vSG9tZWJyZXcvaW5zdGFsbC9IRUFEL2luc3RhbGwuc2gpIgogICMgQXBwbGUgU2lsaWNvbjogYWRkIGJyZXcgdG8gUEFUSAogIGlmIFsgLWYgL29wdC9ob21lYnJldy9iaW4vYnJldyBdOyB0aGVuCiAgICBldmFsICIkKC9vcHQvaG9tZWJyZXcvYmluL2JyZXcgc2hlbGxlbnYpIgogICAgZWNobyAnZXZhbCAiJCgvb3B0L2hvbWVicmV3L2Jpbi9icmV3IHNoZWxsZW52KSInID4+ICIkSE9NRS8uenByb2ZpbGUiCiAgZmkKICBlY2hvICLinIUgIEhvbWVicmV3IGluc3RhbGxlZCIKZmkKCiMg4pSA4pSAIFN0ZXAgMjogUnVudGltZSAoQnVuIHByZWZlcnJlZCkg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACmlmIGNvbW1hbmQgLXYgYnVuICY+L2Rldi9udWxsOyB0aGVuCiAgUlVOVElNRT0iYnVuIgogIGVjaG8gIuKchSAgQnVuICQoYnVuIC0tdmVyc2lvbikgYWxyZWFkeSBpbnN0YWxsZWQiCmVsaWYgY29tbWFuZCAtdiBub2RlICY+L2Rldi9udWxsOyB0aGVuCiAgUlVOVElNRT0ibm9kZSIKICBlY2hvICLinIUgIE5vZGUgJChub2RlIC0tdmVyc2lvbikgZm91bmQg4oCUIHdpbGwgdXNlIG5vZGUiCmVsc2UKICBlY2hvICIiCiAgZWNobyAiU3RlcCAyIOKAlCBJbnN0YWxsaW5nIEJ1buKApiIKICBjdXJsIC1mc1NMIGh0dHBzOi8vYnVuLnNoL2luc3RhbGwgfCBiYXNoCiAgZXhwb3J0IFBBVEg9IiRIT01FLy5idW4vYmluOiRQQVRIIgogIGlmIGNvbW1hbmQgLXYgYnVuICY+L2Rldi9udWxsOyB0aGVuCiAgICBSVU5USU1FPSJidW4iCiAgICBlY2hvICLinIUgIEJ1biBpbnN0YWxsZWQiCiAgZWxzZQogICAgZWNobyAi4pqg77iPICAgQnVuIG5lZWRzIGEgbmV3IHNoZWxsLiBGYWxsaW5nIGJhY2sgdG8gbm9kZeKApiIKICAgIFJVTlRJTUU9Im5vZGUiCiAgZmkKZmkKCiMg4pSA4pSAIFN0ZXAgMzogY2xvdWRmbGFyZWQg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACmlmIGNvbW1hbmQgLXYgY2xvdWRmbGFyZWQgJj4vZGV2L251bGw7IHRoZW4KICBlY2hvICLinIUgIGNsb3VkZmxhcmVkIGFscmVhZHkgaW5zdGFsbGVkIgplbHNlCiAgZWNobyAiIgogIGVjaG8gIlN0ZXAgMyDigJQgSW5zdGFsbGluZyBjbG91ZGZsYXJlZOKApiIKICBicmV3IGluc3RhbGwgY2xvdWRmbGFyZWQKICBlY2hvICLinIUgIGNsb3VkZmxhcmVkIGluc3RhbGxlZCIKZmkKCiMg4pSA4pSAIFN0ZXAgNDogbnBtIGRlcGVuZGVuY2llcyAob25seSBuZWVkZWQgZm9yIG5vZGUgcnVudGltZSkg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACmNkICIkU0NSSVBUX0RJUiIKaWYgWyAiJFJVTlRJTUUiID0gImJ1biIgXTsgdGhlbgogIGlmIFsgISAtZCAiJFNDUklQVF9ESVIvbm9kZV9tb2R1bGVzIiBdOyB0aGVuCiAgICBlY2hvICJTdGVwIDQg4oCUIEluc3RhbGxpbmcgYnVuIGRlcGVuZGVuY2llc+KApiIKICAgIGJ1biBhZGQgZ2xvYiAyPi9kZXYvbnVsbCB8fCB0cnVlCiAgICBlY2hvICLinIUgIERlcGVuZGVuY2llcyByZWFkeSIKICBlbHNlCiAgICBlY2hvICLinIUgIERlcGVuZGVuY2llcyBhbHJlYWR5IHByZXNlbnQiCiAgZmkKZWxzZQogIGlmIFsgISAtZCAiJFNDUklQVF9ESVIvbm9kZV9tb2R1bGVzIiBdOyB0aGVuCiAgICBlY2hvICJTdGVwIDQg4oCUIEluc3RhbGxpbmcgbnBtIGRlcGVuZGVuY2llc+KApiIKICAgIG5wbSBpbml0IC15ID4vZGV2L251bGwgMj4mMSB8fCB0cnVlCiAgICBucG0gaW5zdGFsbCBnbG9iCiAgICBucG0gaW5zdGFsbCAtRCB0eXBlc2NyaXB0IEB0eXBlcy9ub2RlCiAgICBlY2hvICLinIUgIERlcGVuZGVuY2llcyBpbnN0YWxsZWQiCiAgZWxzZQogICAgZWNobyAi4pyFICBEZXBlbmRlbmNpZXMgYWxyZWFkeSBwcmVzZW50IgogIGZpCmZpCgojIOKUgOKUgCBTdGVwIDU6IEludGVyYWN0aXZlIGNvbmZpZ3VyYXRpb24g4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACmlmIFsgIiRRVUlFVCIgPSBmYWxzZSBdOyB0aGVuCiAgZWNobyAiIgogIGVjaG8gIlN0ZXAgNSDigJQgQ29uZmlndXJhdGlvbiIKICBlY2hvICLilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAiCgogICMgUG9ydAogIHJlYWQgLXIgLXAgIiAgIFBvcnQgWyR7UE9SVH1dOiAiIF9pbnB1dAogIFsgLW4gIiRfaW5wdXQiIF0gJiYgUE9SVD0iJF9pbnB1dCIKCiAgIyBBbGxvd2VkIHJvb3RzCiAgX2RlZmF1bHRfcm9vdHM9IiR7UE9LRUNMQVdfUk9PVFM6LSRIT01FfSIKICByZWFkIC1yIC1wICIgICBBbGxvd2VkIGZvbGRlcnMgKGNvbW1hLXNlcGFyYXRlZCkgWyR7X2RlZmF1bHRfcm9vdHN9XTogIiBfaW5wdXQKICBQT0tFQ0xBV19ST09UUz0iJHtfaW5wdXQ6LSRfZGVmYXVsdF9yb290c30iCgogICMgVG9rZW4KICBfY3VyX3Rva2VuPSIke1BPS0VDTEFXX1RPS0VOOi19IgogIGlmIFsgLW4gIiRfY3VyX3Rva2VuIiBdOyB0aGVuCiAgICByZWFkIC1yIC1wICIgICBBdXRoIHRva2VuIChsZWF2ZSBibGFuayB0byBrZWVwIGV4aXN0aW5nKTogIiBfaW5wdXQKICAgIFBPS0VDTEFXX1RPS0VOPSIke19pbnB1dDotJF9jdXJfdG9rZW59IgogIGVsc2UKICAgIHJlYWQgLXIgLXAgIiAgIEF1dGggdG9rZW4gKHJlY29tbWVuZGVkIOKAlCBwcmVzcyBFbnRlciB0byBza2lwKTogIiBQT0tFQ0xBV19UT0tFTgogIGZpCgogICMgUGVyc2lzdCB0byB+Ly56c2hyYz8KICBlY2hvICIiCiAgcmVhZCAtciAtcCAiICAgU2F2ZSBzZXR0aW5ncyB0byB+Ly56c2hyYz8gW1kvbl06ICIgX3NhdmUKICBfc2F2ZT0iJHtfc2F2ZTotWX0iCiAgaWYgW1sgIiRfc2F2ZSIgPX4gXltZeV0kIF1dOyB0aGVuCiAgICAjIFJlbW92ZSBvbGQgUG9rZUNsYXcgYmxvY2sgaWYgcHJlc2VudAogICAgaWYgZ3JlcCAtcSAiIyBQb2tlQ2xhdyDigJQgc3RhcnQiICIkSE9NRS8uenNocmMiIDI+L2Rldi9udWxsOyB0aGVuCiAgICAgIHNlZCAtaSAnJyAnLyMgUG9rZUNsYXcg4oCUIHN0YXJ0LywvIyBQb2tlQ2xhdyDigJQgZW5kL2QnICIkSE9NRS8uenNocmMiCiAgICBmaQogICAgewogICAgICBlY2hvICIiCiAgICAgIGVjaG8gIiMgUG9rZUNsYXcg4oCUIHN0YXJ0IgogICAgICBlY2hvICJleHBvcnQgUE9LRUNMQVdfUE9SVD1cIiR7UE9SVH1cIiIKICAgICAgZWNobyAiZXhwb3J0IFBPS0VDTEFXX1JPT1RTPVwiJHtQT0tFQ0xBV19ST09UU31cIiIKICAgICAgWyAtbiAiJHtQT0tFQ0xBV19UT0tFTjotfSIgXSAmJiBlY2hvICJleHBvcnQgUE9LRUNMQVdfVE9LRU49XCIke1BPS0VDTEFXX1RPS0VOfVwiIgogICAgICBlY2hvICIjIFBva2VDbGF3IOKAlCBlbmQiCiAgICB9ID4+ICIkSE9NRS8uenNocmMiCiAgICBlY2hvICLinIUgIFNldHRpbmdzIHNhdmVkIHRvIH4vLnpzaHJjIgogIGZpCgogIGV4cG9ydCBQT0tFQ0xBV19QT1JUPSIkUE9SVCIKICBleHBvcnQgUE9LRUNMQVdfUk9PVFM9IiR7UE9LRUNMQVdfUk9PVFM6LSRIT01FfSIKICBleHBvcnQgUE9LRUNMQVdfVE9LRU49IiR7UE9LRUNMQVdfVE9LRU46LX0iCgplbHNlCiAgIyBRdWlldCBtb2RlIOKAlCB1c2Ugd2hhdGV2ZXIgaXMgYWxyZWFkeSBleHBvcnRlZAogIGVjaG8gIuKaoSAgUXVpZXQgbW9kZSDigJQgdXNpbmcgZXhpc3RpbmcgZW52aXJvbm1lbnQiCiAgZWNobyAiICAgUE9LRUNMQVdfUE9SVCAgPSAke1BPS0VDTEFXX1BPUlQ6LTM3NDF9IgogIGVjaG8gIiAgIFBPS0VDTEFXX1JPT1RTID0gJHtQT0tFQ0xBV19ST09UUzotJEhPTUV9IgogIGlmIFsgLW4gIiR7UE9LRUNMQVdfVE9LRU46LX0iIF07IHRoZW4KICAgIGVjaG8gIiAgIFBPS0VDTEFXX1RPS0VOID0gKHNldCkiCiAgZWxzZQogICAgZWNobyAiICAgUE9LRUNMQVdfVE9LRU4gPSAobm90IHNldCkiCiAgZmkKZmkKCiMg4pSA4pSAIFN0ZXAgNjogS2lsbCBhbnkgcHJvY2VzcyBhbHJlYWR5IG9uIHRoZSBwb3J0IOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgApfZXhpc3Rpbmc9JChsc29mIC10aSB0Y3A6IiR7UE9SVH0iIDI+L2Rldi9udWxsIHx8IHRydWUpCmlmIFsgLW4gIiRfZXhpc3RpbmciIF07IHRoZW4KICBlY2hvICIiCiAgZWNobyAi4pqg77iPICAgUG9ydCAke1BPUlR9IGluIHVzZSDigJQga2lsbGluZyBQSUQgJHtfZXhpc3Rpbmd94oCmIgogIGtpbGwgIiRfZXhpc3RpbmciIDI+L2Rldi9udWxsIHx8IHRydWUKICBzbGVlcCAxCmZpCgojIOKUgOKUgCBTdGVwIDc6IFN0YXJ0IFBva2VDbGF3IHNlcnZlciDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKZWNobyAiIgplY2hvICLwn5qAICBTdGFydGluZyBQb2tlQ2xhdyBvbiBwb3J0ICR7UE9SVH3igKYiCgppZiBbICIkUlVOVElNRSIgPSAiYnVuIiBdOyB0aGVuCiAgYnVuIHJ1biAiJFNDUklQVF9ESVIvc2VydmVyLnRzIiAmCmVsc2UKICBucHggdHMtbm9kZSAiJFNDUklQVF9ESVIvc2VydmVyLnRzIiAmCmZpClNFUlZFUl9QSUQ9JCEKCnNsZWVwIDIKaWYgISBraWxsIC0wICIkU0VSVkVSX1BJRCIgMj4vZGV2L251bGw7IHRoZW4KICBlY2hvICLinYwgIFNlcnZlciBmYWlsZWQgdG8gc3RhcnQuIENoZWNrIGxvZ3MgYWJvdmUuIgogIGV4aXQgMQpmaQplY2hvICLinIUgIFNlcnZlciBydW5uaW5nIChQSUQgJHtTRVJWRVJfUElEfSkiCgojIOKUgOKUgCBTdGVwIDg6IFN0YXJ0IGNsb3VkZmxhcmVkIHR1bm5lbCDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKZWNobyAi8J+MkCAgU3RhcnRpbmcgY2xvdWRmbGFyZWQgdHVubmVs4oCmIgplY2hvICIgICAgKGxvZ3Mg4oaSICR7VFVOTkVMX0xPR30pIgpybSAtZiAiJFRVTk5FTF9MT0ciCmNsb3VkZmxhcmVkIHR1bm5lbCAtLXVybCAiaHR0cDovLzEyNy4wLjAuMToke1BPUlR9IiA+IiRUVU5ORUxfTE9HIiAyPiYxICYKVFVOTkVMX1BJRD0kIQoKIyBXYWl0IGZvciB0dW5uZWwgVVJMIHRvIGFwcGVhciBpbiBsb2cKVFVOTkVMX1VSTD0iIgpmb3IgX2kgaW4gezEuLjMwfTsgZG8KICBzbGVlcCAxCiAgVFVOTkVMX1VSTD0kKGdyZXAgLW8gJ2h0dHBzOi8vW2EtekEtWjAtOS1dKlwudHJ5Y2xvdWRmbGFyZVwuY29tJyAiJFRVTk5FTF9MT0ciIDI+L2Rldi9udWxsIHwgaGVhZCAtMSB8fCB0cnVlKQogIFsgLW4gIiRUVU5ORUxfVVJMIiBdICYmIGJyZWFrCmRvbmUKCiMg4pSA4pSAIERvbmUg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACmVjaG8gIiIKZWNobyAi4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSBIgplY2hvICLwn5C+ICBQb2tlQ2xhdyBpcyByZWFkeSEiCmVjaG8gIiIKaWYgWyAtbiAiJFRVTk5FTF9VUkwiIF07IHRoZW4KICBlY2hvICIgICBUdW5uZWwgVVJMIDogJHtUVU5ORUxfVVJMfSIKICBpZiBbIC1uICIke1BPS0VDTEFXX1RPS0VOOi19IiBdOyB0aGVuCiAgICBlY2hvICIgICBNQ1AgVVJMICAgIDogJHtUVU5ORUxfVVJMfS9tY3A/dG9rZW49JHtQT0tFQ0xBV19UT0tFTn0iCiAgICBlY2hvICIiCiAgICBlY2hvICIgICDwn5GGIEFkZCB0aGlzIFVSTCBpbiBQb2tlIOKGkiBTZXR0aW5ncyDihpIgSW50ZWdyYXRpb25zIOKGkiBBZGQgTUNQIFNlcnZlciIKICBlbHNlCiAgICBlY2hvICIgICBNQ1AgVVJMICAgIDogJHtUVU5ORUxfVVJMfS9tY3AiCiAgICBlY2hvICIiCiAgICBlY2hvICIgICDwn5GGIEFkZCB0aGlzIFVSTCBpbiBQb2tlIOKGkiBTZXR0aW5ncyDihpIgSW50ZWdyYXRpb25zIOKGkiBBZGQgTUNQIFNlcnZlciIKICAgIGVjaG8gIiAgIOKaoO+4jyAgIE5vIHRva2VuIHNldCDigJQgc2V0IFBPS0VDTEFXX1RPS0VOIHRvIHJlcXVpcmUgYXV0aGVudGljYXRpb24iCiAgZmkKZWxzZQogIGVjaG8gIiAgIOKaoO+4jyAgIENvdWxkIG5vdCBkZXRlY3QgdHVubmVsIFVSTCBhdXRvbWF0aWNhbGx5LiIKICBlY2hvICIgICBDaGVjayAke1RVTk5FTF9MT0d9IGZvciB0aGUgY2xvdWRmbGFyZWQgcHVibGljIFVSTC4iCmZpCmVjaG8gIiIKZWNobyAiICAgU2VydmVyIFBJRCA6ICR7U0VSVkVSX1BJRH0iCmVjaG8gIiAgIFR1bm5lbCBQSUQgOiAke1RVTk5FTF9QSUR9IgplY2hvICIgICBUdW5uZWwgbG9nIDogJHtUVU5ORUxfTE9HfSIKZWNobyAiIgplY2hvICIgICBTdG9wIHdpdGg6ICBraWxsICR7U0VSVkVSX1BJRH0gJHtUVU5ORUxfUElEfSIKZWNobyAi4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSB4pSBIgplY2hvICIiCgojIEtlZXAgYWxpdmUg4oCUIEN0cmwrQyBzdG9wcyBib3RoIHByb2Nlc3NlcyBjbGVhbmx5CnRyYXAgImVjaG8gJyc7IGVjaG8gJ/Cfm5EgU3RvcHBpbmcgUG9rZUNsYXfigKYnOyBraWxsICR7U0VSVkVSX1BJRH0gJHtUVU5ORUxfUElEfSAyPi9kZXYvbnVsbDsgZXhpdCAwIiBJTlQgVEVSTQp3YWl0Cg==
+#!/bin/bash
+## PokeClaw — macOS Onboarding & Launch Script
+##
+## Usage:
+##   bash start-pokeclaw.sh            # full interactive onboarding
+##   bash start-pokeclaw.sh --quiet    # skip prompts, use env vars / defaults
+##
+## Environment variables (all optional):
+##   POKECLAW_PORT   — port (default: 3741)
+##   POKECLAW_TOKEN  — secret auth token
+##   POKECLAW_ROOTS  — comma-separated allowed paths (default: $HOME)
+##
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TUNNEL_LOG="${SCRIPT_DIR}/pokeclaw.log"
+PORT="${POKECLAW_PORT:-3741}"
+QUIET=false
+
+# ── Parse flags ────────────────────────────────────────────────────────────────
+for arg in "$@"; do
+  case "$arg" in
+    --quiet|-q) QUIET=true ;;
+  esac
+done
+
+# ── Banner ─────────────────────────────────────────────────────────────────────
+echo ""
+echo "🐾  PokeClaw — macOS Setup & Launch"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# ── Step 1: Homebrew ───────────────────────────────────────────────────────────
+if command -v brew &>/dev/null; then
+  echo "✅  Homebrew already installed"
+else
+  if [ "$QUIET" = true ]; then
+    echo "❌  Homebrew not found. Run without --quiet to install it."
+    echo "    Or install manually: https://brew.sh"
+    exit 1
+  fi
+  echo ""
+  echo "Step 1 — Installing Homebrew…"
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # Apple Silicon: add brew to PATH
+  if [ -f /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
+  fi
+  echo "✅  Homebrew installed"
+fi
+
+# ── Step 2: Runtime (Bun preferred) ───────────────────────────────────────────
+if command -v bun &>/dev/null; then
+  RUNTIME="bun"
+  echo "✅  Bun $(bun --version) already installed"
+elif command -v node &>/dev/null; then
+  RUNTIME="node"
+  echo "✅  Node $(node --version) found — will use node"
+else
+  echo ""
+  echo "Step 2 — Installing Bun…"
+  curl -fsSL https://bun.sh/install | bash
+  export PATH="$HOME/.bun/bin:$PATH"
+  if command -v bun &>/dev/null; then
+    RUNTIME="bun"
+    echo "✅  Bun installed"
+  else
+    echo "⚠️   Bun needs a new shell. Falling back to node…"
+    RUNTIME="node"
+  fi
+fi
+
+# ── Step 3: cloudflared ────────────────────────────────────────────────────────
+if command -v cloudflared &>/dev/null; then
+  echo "✅  cloudflared already installed"
+else
+  echo ""
+  echo "Step 3 — Installing cloudflared…"
+  brew install cloudflared
+  echo "✅  cloudflared installed"
+fi
+
+# ── Step 4: npm dependencies (only needed for node runtime) ───────────────────
+cd "$SCRIPT_DIR"
+if [ "$RUNTIME" = "bun" ]; then
+  if [ ! -d "$SCRIPT_DIR/node_modules" ]; then
+    echo "Step 4 — Installing bun dependencies…"
+    bun add glob 2>/dev/null || true
+    echo "✅  Dependencies ready"
+  else
+    echo "✅  Dependencies already present"
+  fi
+else
+  if [ ! -d "$SCRIPT_DIR/node_modules" ]; then
+    echo "Step 4 — Installing npm dependencies…"
+    npm init -y >/dev/null 2>&1 || true
+    npm install glob
+    npm install -D typescript @types/node
+    echo "✅  Dependencies installed"
+  else
+    echo "✅  Dependencies already present"
+  fi
+fi
+
+# ── Step 5: Interactive configuration ─────────────────────────────────────────
+if [ "$QUIET" = false ]; then
+  echo ""
+  echo "Step 5 — Configuration"
+  echo "────────────────────────────────────────"
+
+  # Port
+  read -r -p "   Port [${PORT}]: " _input
+  [ -n "$_input" ] && PORT="$_input"
+
+  # Allowed roots
+  _default_roots="${POKECLAW_ROOTS:-$HOME}"
+  read -r -p "   Allowed folders (comma-separated) [${_default_roots}]: " _input
+  POKECLAW_ROOTS="${_input:-$_default_roots}"
+
+  # Token
+  _cur_token="${POKECLAW_TOKEN:-}"
+  if [ -n "$_cur_token" ]; then
+    read -r -p "   Auth token (leave blank to keep existing): " _input
+    POKECLAW_TOKEN="${_input:-$_cur_token}"
+  else
+    read -r -p "   Auth token (recommended — press Enter to skip): " POKECLAW_TOKEN
+  fi
+
+  # Persist to ~/.zshrc?
+  echo ""
+  read -r -p "   Save settings to ~/.zshrc? [Y/n]: " _save
+  _save="${_save:-Y}"
+  if [[ "$_save" =~ ^[Yy]$ ]]; then
+    # Remove old PokeClaw block if present
+    if grep -q "# PokeClaw — start" "$HOME/.zshrc" 2>/dev/null; then
+      sed -i '' '/# PokeClaw — start/,/# PokeClaw — end/d' "$HOME/.zshrc"
+    fi
+    {
+      echo ""
+      echo "# PokeClaw — start"
+      echo "export POKECLAW_PORT=\"${PORT}\""
+      echo "export POKECLAW_ROOTS=\"${POKECLAW_ROOTS}\""
+      [ -n "${POKECLAW_TOKEN:-}" ] && echo "export POKECLAW_TOKEN=\"${POKECLAW_TOKEN}\""
+      echo "# PokeClaw — end"
+    } >> "$HOME/.zshrc"
+    echo "✅  Settings saved to ~/.zshrc"
+  fi
+
+  export POKECLAW_PORT="$PORT"
+  export POKECLAW_ROOTS="${POKECLAW_ROOTS:-$HOME}"
+  export POKECLAW_TOKEN="${POKECLAW_TOKEN:-}"
+
+else
+  # Quiet mode — use whatever is already exported
+  echo "⚡  Quiet mode — using existing environment"
+  echo "   POKECLAW_PORT  = ${POKECLAW_PORT:-3741}"
+  echo "   POKECLAW_ROOTS = ${POKECLAW_ROOTS:-$HOME}"
+  if [ -n "${POKECLAW_TOKEN:-}" ]; then
+    echo "   POKECLAW_TOKEN = (set)"
+  else
+    echo "   POKECLAW_TOKEN = (not set)"
+  fi
+fi
+
+# ── Step 6: Kill any process already on the port ──────────────────────────────
+_existing=$(lsof -ti tcp:"${PORT}" 2>/dev/null || true)
+if [ -n "$_existing" ]; then
+  echo ""
+  echo "⚠️   Port ${PORT} in use — killing PID ${_existing}…"
+  kill "$_existing" 2>/dev/null || true
+  sleep 1
+fi
+
+# ── Step 7: Start PokeClaw server ─────────────────────────────────────────────
+echo ""
+echo "🚀  Starting PokeClaw on port ${PORT}…"
+
+if [ "$RUNTIME" = "bun" ]; then
+  bun run "$SCRIPT_DIR/server.ts" &
+else
+  npx ts-node "$SCRIPT_DIR/server.ts" &
+fi
+SERVER_PID=$!
+
+sleep 2
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+  echo "❌  Server failed to start. Check logs above."
+  exit 1
+fi
+echo "✅  Server running (PID ${SERVER_PID})"
+
+# ── Step 8: Start cloudflared tunnel ──────────────────────────────────────────
+echo "🌐  Starting cloudflared tunnel…"
+echo "    (logs → ${TUNNEL_LOG})"
+rm -f "$TUNNEL_LOG"
+cloudflared tunnel --url "http://127.0.0.1:${PORT}" >"$TUNNEL_LOG" 2>&1 &
+TUNNEL_PID=$!
+
+# Wait for tunnel URL to appear in log
+TUNNEL_URL=""
+for _i in {1..30}; do
+  sleep 1
+  TUNNEL_URL=$(grep -o 'https://[a-zA-Z0-9-]*\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | head -1 || true)
+  [ -n "$TUNNEL_URL" ] && break
+done
+
+# ── Done ───────────────────────────────────────────────────────────────────────
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🐾  PokeClaw is ready!"
+echo ""
+if [ -n "$TUNNEL_URL" ]; then
+  echo "   Tunnel URL : ${TUNNEL_URL}"
+  if [ -n "${POKECLAW_TOKEN:-}" ]; then
+    echo "   MCP URL    : ${TUNNEL_URL}/mcp?token=${POKECLAW_TOKEN}"
+    echo ""
+    echo "   👆 Add this URL in Poke → Settings → Integrations → Add MCP Server"
+  else
+    echo "   MCP URL    : ${TUNNEL_URL}/mcp"
+    echo ""
+    echo "   👆 Add this URL in Poke → Settings → Integrations → Add MCP Server"
+    echo "   ⚠️   No token set — set POKECLAW_TOKEN to require authentication"
+  fi
+else
+  echo "   ⚠️   Could not detect tunnel URL automatically."
+  echo "   Check ${TUNNEL_LOG} for the cloudflared public URL."
+fi
+echo ""
+echo "   Server PID : ${SERVER_PID}"
+echo "   Tunnel PID : ${TUNNEL_PID}"
+echo "   Tunnel log : ${TUNNEL_LOG}"
+echo ""
+echo "   Stop with:  kill ${SERVER_PID} ${TUNNEL_PID}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Keep alive — Ctrl+C stops both processes cleanly
+trap "echo ''; echo '🛑 Stopping PokeClaw…'; kill ${SERVER_PID} ${TUNNEL_PID} 2>/dev/null; exit 0" INT TERM
+wait
