@@ -1,6 +1,6 @@
-## 🐾 PokeClaw — Poke Recipe for MacBook Access
+## 🐾 PokeClaw — Poke Recipe for Mac Access
 
-PokeClaw is a local MCP server that bridges Poke to your MacBook's filesystem and terminal.
+PokeClaw is a local MCP server that bridges Poke to your Mac's filesystem and terminal.
 Once running, Poke can read/write files, search your Mac, and run shell commands on your behalf.
 
 ---
