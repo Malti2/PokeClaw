@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * PokeClaw — Local MCP Server for Poke
- * Gives Poke access to your MacBook's filesystem and terminal.
+ * Gives Poke access to your Mac's filesystem and terminal.
  *
  * Tools:
  *   read_file      — Read a file's contents
