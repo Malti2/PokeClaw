@@ -1,1 +1,372 @@
-IyEvdXNyL2Jpbi9lbnYgYnVuCi8qKgogKiBQb2tlQ2xhdyDigJQgTG9jYWwgTUNQIFNlcnZlciBmb3IgUG9rZQogKiBHaXZlcyBQb2tlIGFjY2VzcyB0byB5b3VyIE1hY0Jvb2sncyBmaWxlc3lzdGVtIGFuZCB0ZXJtaW5hbC4KICoKICogVG9vbHM6CiAqICAgcmVhZF9maWxlICAgICAg4oCUIFJlYWQgYSBmaWxlJ3MgY29udGVudHMKICogICB3cml0ZV9maWxlICAgICDigJQgV3JpdGUgb3Igb3ZlcndyaXRlIGEgZmlsZQogKiAgIGxpc3RfZGlyZWN0b3J5IOKAlCBMaXN0IGZpbGVzL2ZvbGRlcnMgaW4gYSBkaXJlY3RvcnkKICogICBzZWFyY2hfZmlsZXMgICDigJQgU2VhcmNoIGZvciBmaWxlcyBieSBnbG9iIHBhdHRlcm4KICogICBydW5fY29tbWFuZCAgICDigJQgRXhlY3V0ZSBhIHNoZWxsIGNvbW1hbmQgYW5kIHJldHVybiBvdXRwdXQKICogICBnZXRfZW52ICAgICAgICDigJQgUmVhZCBhbiBlbnZpcm9ubWVudCB2YXJpYWJsZQogKgogKiBBdXRoOgogKiAgIFNldCBQT0tFQ0xBV19UT0tFTi4gVG9rZW4gYWNjZXB0ZWQgdmlhOgogKiAgICAgLSBRdWVyeSBwYXJhbTogIC9tY3A/dG9rZW49PHlvdXItdG9rZW4+CiAqICAgICAtIEhlYWRlcjogICAgICAgQXV0aG9yaXphdGlvbjogQmVhcmVyIDx5b3VyLXRva2VuPgogKgogKiBDb25maWcgKGVudiB2YXJzKToKICogICBQT0tFQ0xBV19QT1JUICAg4oCUIFBvcnQgdG8gbGlzdGVuIG9uIChkZWZhdWx0OiAzNzQxKQogKiAgIFBPS0VDTEFXX1RPS0VOICDigJQgU2VjcmV0IHRva2VuIChsZWF2ZSB1bnNldCB0byBkaXNhYmxlIGF1dGgpCiAqICAgUE9LRUNMQVdfUk9PVFMgIOKAlCBDb21tYS1zZXBhcmF0ZWQgYWxsb3dlZCByb290IHBhdGhzIChkZWZhdWx0OiAkSE9NRSkKICovCgppbXBvcnQgeyBjcmVhdGVTZXJ2ZXIgfSBmcm9tICJodHRwIjsKaW1wb3J0IHR5cGUgeyBJbmNvbWluZ01lc3NhZ2UsIFNlcnZlclJlc3BvbnNlIH0gZnJvbSAiaHR0cCI7CmltcG9ydCB7IHJlYWRGaWxlU3luYywgd3JpdGVGaWxlU3luYywgcmVhZGRpclN5bmMsIHN0YXRTeW5jLCBta2RpclN5bmMsIGV4aXN0c1N5bmMgfSBmcm9tICJmcyI7CmltcG9ydCB7IGV4ZWNTeW5jIH0gZnJvbSAiY2hpbGRfcHJvY2VzcyI7CmltcG9ydCB7IHJlc29sdmUsIGpvaW4sIGRpcm5hbWUsIGhvbWVkaXIgfSBmcm9tICJwYXRoIjsKCi8vIOKUgOKUgOKUgCBDb25maWcg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACmNvbnN0IFBPUlQgICA9IHBhcnNlSW50KHByb2Nlc3MuZW52LlBPS0VDTEFXX1BPUlQgID8/ICIzNzQxIiwgMTApOwpjb25zdCBUT0tFTiAgPSBwcm9jZXNzLmVudi5QT0tFQ0xBV19UT0tFTiA/PyAiIjsKY29uc3QgSE9NRSAgID0gaG9tZWRpcigpOwpjb25zdCBST09UUzogc3RyaW5nW10gPSAocHJvY2Vzcy5lbnYuUE9LRUNMQVdfUk9PVFMgPz8gSE9NRSkKICAuc3BsaXQoIiwiKQogIC5tYXAoKHIpID0+IHIudHJpbSgpLnJlcGxhY2UoL15+LywgSE9NRSkpCiAgLmZpbHRlcihCb29sZWFuKTsKCi8vIOKUgOKUgOKUgCBMb2dnaW5nIOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgApmdW5jdGlvbiBsb2cobXNnOiBzdHJpbmcpIHsKICBjb25zdCB0cyA9IG5ldyBEYXRlKCkudG9Mb2NhbGVUaW1lU3RyaW5nKCJkZS1ERSIsIHsgaG91cjogIjItZGlnaXQiLCBtaW51dGU6ICIyLWRpZ2l0Iiwgc2Vjb25kOiAiMi1kaWdpdCIgfSk7CiAgY29uc29sZS5sb2coYFske3RzfV0gJHttc2d9YCk7Cn0KCmZ1bmN0aW9uIGxvZ1Rvb2xVc2UodG9vbDogc3RyaW5nLCBhcmdzOiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPikgewogIGNvbnN0IHByZXZpZXcgPSBPYmplY3QuZW50cmllcyhhcmdzKQogICAgLm1hcCgoW2ssIHZdKSA9PiB7CiAgICAgIGNvbnN0IHMgPSBTdHJpbmcodiA/PyAiIik7CiAgICAgIHJldHVybiBgJHtrfT0ke3MubGVuZ3RoID4gNjAgPyBzLnNsaWNlKDAsIDYwKSArICLigKYiIDogc31gOwogICAgfSkKICAgIC5qb2luKCIgICIpOwogIGNvbnNvbGUubG9nKGBcbvCfkL4gUG9rZSBpcyB1c2luZyB0b29sOiBceDFiWzM2bSR7dG9vbH1ceDFiWzBtYCk7CiAgaWYgKHByZXZpZXcpIGNvbnNvbGUubG9nKGAgICAke3ByZXZpZXd9YCk7Cn0KCi8vIOKUgOKUgOKUgCBBdXRoIOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgApmdW5jdGlvbiBpc0F1dGhvcmlzZWQocmVxOiBJbmNvbWluZ01lc3NhZ2UsIHVybDogVVJMKTogYm9vbGVhbiB7CiAgaWYgKCFUT0tFTikgcmV0dXJuIHRydWU7CiAgLy8gMS4gP3Rva2VuPSBxdWVyeSBwYXJhbQogIGlmICh1cmwuc2VhcmNoUGFyYW1zLmdldCgidG9rZW4iKSA9PT0gVE9LRU4pIHJldHVybiB0cnVlOwogIC8vIDIuIEF1dGhvcml6YXRpb246IEJlYXJlciA8dG9rZW4+CiAgY29uc3QgaGVhZGVyID0gcmVxLmhlYWRlcnNbImF1dGhvcml6YXRpb24iXSA/PyAiIjsKICBpZiAoaGVhZGVyLnN0YXJ0c1dpdGgoIkJlYXJlciAiKSAmJiBoZWFkZXIuc2xpY2UoNykgPT09IFRPS0VOKSByZXR1cm4gdHJ1ZTsKICByZXR1cm4gZmFsc2U7Cn0KCi8vIOKUgOKUgOKUgCBQYXRoIGd1YXJkIOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgApmdW5jdGlvbiBzYWZlUGF0aChyYXc6IHN0cmluZyk6IHN0cmluZyB7CiAgY29uc3QgcCA9IHJlc29sdmUocmF3LnJlcGxhY2UoL15+LywgSE9NRSkpOwogIGNvbnN0IGFsbG93ZWQgPSBST09UUy5zb21lKChyb290KSA9PiBwID09PSByZXNvbHZlKHJvb3QpIHx8IHAuc3RhcnRzV2l0aChyZXNvbHZlKHJvb3QpICsgIi8iKSk7CiAgaWYgKCFhbGxvd2VkKSB0aHJvdyBuZXcgRXJyb3IoYEFjY2VzcyBkZW5pZWQ6ICcke3B9JyBpcyBvdXRzaWRlIGFsbG93ZWQgcm9vdHMgKCR7Uk9PVFMuam9pbigiLCAiKX0pYCk7CiAgcmV0dXJuIHA7Cn0KCi8vIOKUgOKUgOKUgCBEYW5nZXJvdXMtY29tbWFuZCBndWFyZCDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKY29uc3QgQkxPQ0sgPSBbCiAgL1xicm1ccystW2Etel0qclthLXpdKmZccytcLy8sICAvLyBybSAtcmYgLwogIC9cYnN1ZG9ccytybVxiLywKICAvOlwoXClccypcey4qXH0vLCAgICAgICAgICAgICAgICAgLy8gZm9yayBib21iCiAgL1xibWtmc1xiLywKICAvXGJkZFxzK2lmPS8sCiAgLz5ccypcL2Rldlwvc2RbYS16XS8sCl07CmZ1bmN0aW9uIGJsb2NrZWQoY21kOiBzdHJpbmcpOiBib29sZWFuIHsKICByZXR1cm4gQkxPQ0suc29tZSgocmUpID0+IHJlLnRlc3QoY21kKSk7Cn0KCi8vIOKUgOKUgOKUgCBUb29sIGltcGxlbWVudGF0aW9ucyDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKCmZ1bmN0aW9uIHRvb2xSZWFkRmlsZShhcmdzOiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPik6IHN0cmluZyB7CiAgaWYgKCFhcmdzLnBhdGgpIHRocm93IG5ldyBFcnJvcigicGF0aCBpcyByZXF1aXJlZCIpOwogIGNvbnN0IHAgPSBzYWZlUGF0aChTdHJpbmcoYXJncy5wYXRoKSk7CiAgcmV0dXJuIHJlYWRGaWxlU3luYyhwLCAidXRmLTgiKTsKfQoKZnVuY3Rpb24gdG9vbFdyaXRlRmlsZShhcmdzOiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPik6IHN0cmluZyB7CiAgaWYgKCFhcmdzLnBhdGgpICAgIHRocm93IG5ldyBFcnJvcigicGF0aCBpcyByZXF1aXJlZCIpOwogIGlmIChhcmdzLmNvbnRlbnQgPT09IHVuZGVmaW5lZCkgdGhyb3cgbmV3IEVycm9yKCJjb250ZW50IGlzIHJlcXVpcmVkIik7CiAgY29uc3QgcCAgICAgICA9IHNhZmVQYXRoKFN0cmluZyhhcmdzLnBhdGgpKTsKICBjb25zdCBjb250ZW50ID0gU3RyaW5nKGFyZ3MuY29udGVudCk7CiAgY29uc3QgZGlyICAgICA9IGRpcm5hbWUocCk7CiAgaWYgKCFleGlzdHNTeW5jKGRpcikpIG1rZGlyU3luYyhkaXIsIHsgcmVjdXJzaXZlOiB0cnVlIH0pOwogIHdyaXRlRmlsZVN5bmMocCwgY29udGVudCwgInV0Zi04Iik7CiAgcmV0dXJuIGBXcml0dGVuICR7Y29udGVudC5sZW5ndGh9IGNoYXJzIHRvICR7cH1gOwp9CgpmdW5jdGlvbiB0b29sTGlzdERpcmVjdG9yeShhcmdzOiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPik6IHN0cmluZyB7CiAgY29uc3QgcmF3ID0gYXJncy5wYXRoID8gU3RyaW5nKGFyZ3MucGF0aCkgOiBIT01FOwogIGNvbnN0IHAgICA9IHNhZmVQYXRoKHJhdyk7CiAgY29uc3QgZW50cmllcyA9IHJlYWRkaXJTeW5jKHApLm1hcCgobmFtZSkgPT4gewogICAgdHJ5IHsKICAgICAgY29uc3QgZnVsbCA9IGpvaW4ocCwgbmFtZSk7CiAgICAgIGNvbnN0IHN0ICAgPSBzdGF0U3luYyhmdWxsKTsKICAgICAgY29uc3QgdHlwZSA9IHN0LmlzRGlyZWN0b3J5KCkgPyAiZGlyICIgOiAiZmlsZSI7CiAgICAgIGNvbnN0IHNpemUgPSBzdC5pc0ZpbGUoKSA/IGAgKCR7c3Quc2l6ZX0gQilgIDogIiI7CiAgICAgIHJldHVybiBgJHt0eXBlfSAgJHtuYW1lfSR7c2l6ZX1gOwogICAgfSBjYXRjaCB7CiAgICAgIHJldHVybiBgPyAgICAgJHtuYW1lfWA7CiAgICB9CiAgfSk7CiAgcmV0dXJuIGVudHJpZXMubGVuZ3RoID8gZW50cmllcy5qb2luKCJcbiIpIDogIihlbXB0eSkiOwp9Cgphc3luYyBmdW5jdGlvbiB0b29sU2VhcmNoRmlsZXMoYXJnczogUmVjb3JkPHN0cmluZywgdW5rbm93bj4pOiBQcm9taXNlPHN0cmluZz4gewogIGlmICghYXJncy5yb290KSAgICB0aHJvdyBuZXcgRXJyb3IoInJvb3QgaXMgcmVxdWlyZWQiKTsKICBpZiAoIWFyZ3MucGF0dGVybikgdGhyb3cgbmV3IEVycm9yKCJwYXR0ZXJuIGlzIHJlcXVpcmVkIik7CiAgY29uc3Qgcm9vdCAgICA9IHNhZmVQYXRoKFN0cmluZyhhcmdzLnJvb3QpKTsKICBjb25zdCBwYXR0ZXJuID0gU3RyaW5nKGFyZ3MucGF0dGVybik7CiAgLy8gVXNlIGZpbmQoMSkgc28gd2UgZG9uJ3QgbmVlZCBhbiBucG0gZGVwZW5kZW5jeSBmb3IgZ2xvYgogIGNvbnN0IGNtZCA9IGBmaW5kICIke3Jvb3R9IiAtbmFtZSAiJHtwYXR0ZXJufSIgMj4vZGV2L251bGwgfCBoZWFkIC0yMDBgOwogIGNvbnN0IG91dCA9IGV4ZWNTeW5jKGNtZCwgeyBlbmNvZGluZzogInV0Zi04IiwgdGltZW91dDogMTVfMDAwIH0pOwogIHJldHVybiBvdXQudHJpbSgpIHx8ICJObyBmaWxlcyBtYXRjaGVkLiI7Cn0KCmZ1bmN0aW9uIHRvb2xSdW5Db21tYW5kKGFyZ3M6IFJlY29yZDxzdHJpbmcsIHVua25vd24+KTogc3RyaW5nIHsKICBpZiAoIWFyZ3MuY29tbWFuZCkgdGhyb3cgbmV3IEVycm9yKCJjb21tYW5kIGlzIHJlcXVpcmVkIik7CiAgY29uc3QgY29tbWFuZCAgID0gU3RyaW5nKGFyZ3MuY29tbWFuZCk7CiAgY29uc3QgY3dkICAgICAgID0gYXJncy5jd2QgPyBzYWZlUGF0aChTdHJpbmcoYXJncy5jd2QpKSA6IEhPTUU7CiAgY29uc3QgdGltZW91dE1zID0gYXJncy50aW1lb3V0X21zID8gcGFyc2VJbnQoU3RyaW5nKGFyZ3MudGltZW91dF9tcyksIDEwKSA6IDMwXzAwMDsKICBpZiAoYmxvY2tlZChjb21tYW5kKSkgdGhyb3cgbmV3IEVycm9yKCJCbG9ja2VkOiBjb21tYW5kIG1hdGNoZWQgYSBkYW5nZXJvdXMgcGF0dGVybiIpOwogIHRyeSB7CiAgICBjb25zdCBvdXQgPSBleGVjU3luYyhjb21tYW5kLCB7CiAgICAgIGN3ZCwKICAgICAgdGltZW91dDogdGltZW91dE1zLAogICAgICBlbmNvZGluZzogInV0Zi04IiwKICAgICAgc3RkaW86IFsicGlwZSIsICJwaXBlIiwgInBpcGUiXSwKICAgIH0pOwogICAgcmV0dXJuIG91dCB8fCAiKG5vIG91dHB1dCkiOwogIH0gY2F0Y2ggKGU6IHVua25vd24pIHsKICAgIGlmIChlICYmIHR5cGVvZiBlID09PSAib2JqZWN0IiAmJiAic3Rkb3V0IiBpbiBlKSB7CiAgICAgIGNvbnN0IGVyciA9IGUgYXMgeyBzdGRvdXQ/OiBzdHJpbmc7IHN0ZGVycj86IHN0cmluZzsgbWVzc2FnZT86IHN0cmluZyB9OwogICAgICBjb25zdCBjb21iaW5lZCA9IFtlcnIuc3Rkb3V0LCBlcnIuc3RkZXJyXS5maWx0ZXIoQm9vbGVhbikuam9pbigiXG4iKS50cmltKCk7CiAgICAgIHRocm93IG5ldyBFcnJvcihjb21iaW5lZCB8fCAoZXJyLm1lc3NhZ2UgPz8gIkNvbW1hbmQgZmFpbGVkIikpOwogICAgfQogICAgdGhyb3cgZTsKICB9Cn0KCmZ1bmN0aW9uIHRvb2xHZXRFbnYoYXJnczogUmVjb3JkPHN0cmluZywgdW5rbm93bj4pOiBzdHJpbmcgewogIGlmICghYXJncy5uYW1lKSB0aHJvdyBuZXcgRXJyb3IoIm5hbWUgaXMgcmVxdWlyZWQiKTsKICBjb25zdCB2YWwgPSBwcm9jZXNzLmVudltTdHJpbmcoYXJncy5uYW1lKV07CiAgcmV0dXJuIHZhbCAhPT0gdW5kZWZpbmVkID8gdmFsIDogIihub3Qgc2V0KSI7Cn0KCi8vIOKUgOKUgOKUgCBNQ1AgdG9vbCBzY2hlbWFzIOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgApjb25zdCBUT09MUyA9IFsKICB7CiAgICBuYW1lOiAicmVhZF9maWxlIiwKICAgIGRlc2NyaXB0aW9uOiAiUmVhZCB0aGUgZnVsbCBjb250ZW50cyBvZiBhIGZpbGUgb24gdGhlIGxvY2FsIE1hYy4iLAogICAgaW5wdXRTY2hlbWE6IHsKICAgICAgdHlwZTogIm9iamVjdCIsCiAgICAgIHByb3BlcnRpZXM6IHsKICAgICAgICBwYXRoOiB7IHR5cGU6ICJzdHJpbmciLCBkZXNjcmlwdGlvbjogIkFic29sdXRlIG9yIH4gcGF0aCB0byB0aGUgZmlsZS4iIH0sCiAgICAgIH0sCiAgICAgIHJlcXVpcmVkOiBbInBhdGgiXSwKICAgIH0sCiAgfSwKICB7CiAgICBuYW1lOiAid3JpdGVfZmlsZSIsCiAgICBkZXNjcmlwdGlvbjogIldyaXRlIChjcmVhdGUgb3Igb3ZlcndyaXRlKSBhIGZpbGUgb24gdGhlIGxvY2FsIE1hYy4iLAogICAgaW5wdXRTY2hlbWE6IHsKICAgICAgdHlwZTogIm9iamVjdCIsCiAgICAgIHByb3BlcnRpZXM6IHsKICAgICAgICBwYXRoOiAgICB7IHR5cGU6ICJzdHJpbmciLCBkZXNjcmlwdGlvbjogIkFic29sdXRlIG9yIH4gcGF0aCB0byB0aGUgZmlsZS4iIH0sCiAgICAgICAgY29udGVudDogeyB0eXBlOiAic3RyaW5nIiwgZGVzY3JpcHRpb246ICJUZXh0IGNvbnRlbnQgdG8gd3JpdGUuIiB9LAogICAgICB9LAogICAgICByZXF1aXJlZDogWyJwYXRoIiwgImNvbnRlbnQiXSwKICAgIH0sCiAgfSwKICB7CiAgICBuYW1lOiAibGlzdF9kaXJlY3RvcnkiLAogICAgZGVzY3JpcHRpb246ICJMaXN0IGZpbGVzIGFuZCBmb2xkZXJzIGluc2lkZSBhIGRpcmVjdG9yeS4iLAogICAgaW5wdXRTY2hlbWE6IHsKICAgICAgdHlwZTogIm9iamVjdCIsCiAgICAgIHByb3BlcnRpZXM6IHsKICAgICAgICBwYXRoOiB7IHR5cGU6ICJzdHJpbmciLCBkZXNjcmlwdGlvbjogIkRpcmVjdG9yeSBwYXRoLiBEZWZhdWx0cyB0byBob21lLiIgfSwKICAgICAgfSwKICAgIH0sCiAgfSwKICB7CiAgICBuYW1lOiAic2VhcmNoX2ZpbGVzIiwKICAgIGRlc2NyaXB0aW9uOiAiU2VhcmNoIGZvciBmaWxlcyBieSBuYW1lIHBhdHRlcm4gKGdsb2IpIHVuZGVyIGEgZGlyZWN0b3J5LiIsCiAgICBpbnB1dFNjaGVtYTogewogICAgICB0eXBlOiAib2JqZWN0IiwKICAgICAgcHJvcGVydGllczogewogICAgICAgIHJvb3Q6ICAgIHsgdHlwZTogInN0cmluZyIsIGRlc2NyaXB0aW9uOiAiRGlyZWN0b3J5IHRvIHNlYXJjaCBpbi4iIH0sCiAgICAgICAgcGF0dGVybjogeyB0eXBlOiAic3RyaW5nIiwgZGVzY3JpcHRpb246ICJHbG9iIHBhdHRlcm4sIGUuZy4gJyoqLyoudHMnIiB9LAogICAgICB9LAogICAgICByZXF1aXJlZDogWyJyb290IiwgInBhdHRlcm4iXSwKICAgIH0sCiAgfSwKICB7CiAgICBuYW1lOiAicnVuX2NvbW1hbmQiLAogICAgZGVzY3JpcHRpb246ICJSdW4gYSBzaGVsbCBjb21tYW5kIG9uIHRoZSBNYWMgYW5kIHJldHVybiBzdGRvdXQvc3RkZXJyLiBDb21tYW5kcyBydW4gaW4geW91ciBob21lIGRpcmVjdG9yeS4iLAogICAgaW5wdXRTY2hlbWE6IHsKICAgICAgdHlwZTogIm9iamVjdCIsCiAgICAgIHByb3BlcnRpZXM6IHsKICAgICAgICBjb21tYW5kOiAgICB7IHR5cGU6ICJzdHJpbmciLCAgZGVzY3JpcHRpb246ICJTaGVsbCBjb21tYW5kIHRvIGV4ZWN1dGUuIiB9LAogICAgICAgIGN3ZDogICAgICAgIHsgdHlwZTogInN0cmluZyIsICBkZXNjcmlwdGlvbjogIldvcmtpbmcgZGlyZWN0b3J5IChvcHRpb25hbCwgZGVmYXVsdHMgdG8gaG9tZSkuIiB9LAogICAgICAgIHRpbWVvdXRfbXM6IHsgdHlwZTogIm51bWJlciIsICBkZXNjcmlwdGlvbjogIk1heCBtcyB0byB3YWl0IChkZWZhdWx0IDMwMDAwKS4iIH0sCiAgICAgIH0sCiAgICAgIHJlcXVpcmVkOiBbImNvbW1hbmQiXSwKICAgIH0sCiAgfSwKICB7CiAgICBuYW1lOiAiZ2V0X2VudiIsCiAgICBkZXNjcmlwdGlvbjogIlJlYWQgYW4gZW52aXJvbm1lbnQgdmFyaWFibGUgZnJvbSB0aGUgTWFjLiIsCiAgICBpbnB1dFNjaGVtYTogewogICAgICB0eXBlOiAib2JqZWN0IiwKICAgICAgcHJvcGVydGllczogewogICAgICAgIG5hbWU6IHsgdHlwZTogInN0cmluZyIsIGRlc2NyaXB0aW9uOiAiRW52aXJvbm1lbnQgdmFyaWFibGUgbmFtZS4iIH0sCiAgICAgIH0sCiAgICAgIHJlcXVpcmVkOiBbIm5hbWUiXSwKICAgIH0sCiAgfSwKXTsKCi8vIOKUgOKUgOKUgCBNQ1AgSlNPTi1SUEMgaGFuZGxlciDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKYXN5bmMgZnVuY3Rpb24gaGFuZGxlUlBDKGJvZHk6IFJlY29yZDxzdHJpbmcsIHVua25vd24+KTogUHJvbWlzZTx1bmtub3duPiB7CiAgY29uc3QgbWV0aG9kID0gU3RyaW5nKGJvZHkubWV0aG9kID8/ICIiKTsKICBjb25zdCBpZCAgICAgPSBib2R5LmlkID8/IG51bGw7CiAgY29uc3QgcGFyYW1zID0gKGJvZHkucGFyYW1zID8/IHt9KSBhcyBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPjsKCiAgY29uc3Qgb2sgID0gKHJlc3VsdDogdW5rbm93bikgPT4gKHsganNvbnJwYzogIjIuMCIsIGlkLCByZXN1bHQgfSk7CiAgY29uc3QgZXJyID0gKGNvZGU6IG51bWJlciwgbWVzc2FnZTogc3RyaW5nKSA9PiAoeyBqc29ucnBjOiAiMi4wIiwgaWQsIGVycm9yOiB7IGNvZGUsIG1lc3NhZ2UgfSB9KTsKCiAgdHJ5IHsKICAgIHN3aXRjaCAobWV0aG9kKSB7CiAgICAgIGNhc2UgImluaXRpYWxpemUiOgogICAgICAgIHJldHVybiBvayh7CiAgICAgICAgICBwcm90b2NvbFZlcnNpb246ICIyMDI0LTExLTA1IiwKICAgICAgICAgIHNlcnZlckluZm86IHsgbmFtZTogIlBva2VDbGF3IiwgdmVyc2lvbjogIjEuMC4wIiB9LAogICAgICAgICAgY2FwYWJpbGl0aWVzOiB7IHRvb2xzOiB7fSB9LAogICAgICAgIH0pOwoKICAgICAgY2FzZSAibm90aWZpY2F0aW9ucy9pbml0aWFsaXplZCI6CiAgICAgICAgcmV0dXJuIG51bGw7IC8vIG5vIHJlc3BvbnNlIGZvciBub3RpZmljYXRpb25zCgogICAgICBjYXNlICJ0b29scy9saXN0IjoKICAgICAgICByZXR1cm4gb2soeyB0b29sczogVE9PTFMgfSk7CgogICAgICBjYXNlICJ0b29scy9jYWxsIjogewogICAgICAgIGNvbnN0IHRvb2xOYW1lID0gU3RyaW5nKHBhcmFtcy5uYW1lID8/ICIiKTsKICAgICAgICBjb25zdCBhcmdzICAgICA9IChwYXJhbXMuYXJndW1lbnRzID8/IHt9KSBhcyBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPjsKCiAgICAgICAgbG9nVG9vbFVzZSh0b29sTmFtZSwgYXJncyk7CgogICAgICAgIGxldCB0ZXh0OiBzdHJpbmc7CiAgICAgICAgc3dpdGNoICh0b29sTmFtZSkgewogICAgICAgICAgY2FzZSAicmVhZF9maWxlIjogICAgICB0ZXh0ID0gdG9vbFJlYWRGaWxlKGFyZ3MpOyAgICAgICAgICBicmVhazsKICAgICAgICAgIGNhc2UgIndyaXRlX2ZpbGUiOiAgICAgdGV4dCA9IHRvb2xXcml0ZUZpbGUoYXJncyk7ICAgICAgICAgYnJlYWs7CiAgICAgICAgICBjYXNlICJsaXN0X2RpcmVjdG9yeSI6IHRleHQgPSB0b29sTGlzdERpcmVjdG9yeShhcmdzKTsgICAgIGJyZWFrOwogICAgICAgICAgY2FzZSAic2VhcmNoX2ZpbGVzIjogICB0ZXh0ID0gYXdhaXQgdG9vbFNlYXJjaEZpbGVzKGFyZ3MpOyBicmVhazsKICAgICAgICAgIGNhc2UgInJ1bl9jb21tYW5kIjogICAgdGV4dCA9IHRvb2xSdW5Db21tYW5kKGFyZ3MpOyAgICAgICAgYnJlYWs7CiAgICAgICAgICBjYXNlICJnZXRfZW52IjogICAgICAgIHRleHQgPSB0b29sR2V0RW52KGFyZ3MpOyAgICAgICAgICAgIGJyZWFrOwogICAgICAgICAgZGVmYXVsdDoKICAgICAgICAgICAgcmV0dXJuIGVycigtMzI2MDEsIGBVbmtub3duIHRvb2w6ICR7dG9vbE5hbWV9YCk7CiAgICAgICAgfQoKICAgICAgICByZXR1cm4gb2soeyBjb250ZW50OiBbeyB0eXBlOiAidGV4dCIsIHRleHQgfV0gfSk7CiAgICAgIH0KCiAgICAgIGNhc2UgInBpbmciOgogICAgICAgIHJldHVybiBvayh7fSk7CgogICAgICBkZWZhdWx0OgogICAgICAgIHJldHVybiBlcnIoLTMyNjAxLCBgTWV0aG9kIG5vdCBmb3VuZDogJHttZXRob2R9YCk7CiAgICB9CiAgfSBjYXRjaCAoZTogdW5rbm93bikgewogICAgY29uc3QgbWVzc2FnZSA9IGUgaW5zdGFuY2VvZiBFcnJvciA/IGUubWVzc2FnZSA6IFN0cmluZyhlKTsKICAgIGxvZyhg4pqg77iPICBFcnJvciBpbiAke21ldGhvZH06ICR7bWVzc2FnZX1gKTsKICAgIHJldHVybiBlcnIoLTMyNjAzLCBtZXNzYWdlKTsKICB9Cn0KCi8vIOKUgOKUgOKUgCBIVFRQIHNlcnZlciDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKZnVuY3Rpb24ganNvbihyZXM6IFNlcnZlclJlc3BvbnNlLCBzdGF0dXM6IG51bWJlciwgZGF0YTogdW5rbm93bikgewogIGNvbnN0IGJvZHkgPSBKU09OLnN0cmluZ2lmeShkYXRhKTsKICByZXMud3JpdGVIZWFkKHN0YXR1cywgewogICAgIkNvbnRlbnQtVHlwZSI6ICJhcHBsaWNhdGlvbi9qc29uIiwKICAgICJBY2Nlc3MtQ29udHJvbC1BbGxvdy1PcmlnaW4iOiAiKiIsCiAgICAiQWNjZXNzLUNvbnRyb2wtQWxsb3ctSGVhZGVycyI6ICJDb250ZW50LVR5cGUsIEF1dGhvcml6YXRpb24iLAogICAgIkFjY2Vzcy1Db250cm9sLUFsbG93LU1ldGhvZHMiOiAiUE9TVCwgR0VULCBPUFRJT05TIiwKICB9KTsKICByZXMuZW5kKGJvZHkpOwp9Cgpjb25zdCBzZXJ2ZXIgPSBjcmVhdGVTZXJ2ZXIoYXN5bmMgKHJlcTogSW5jb21pbmdNZXNzYWdlLCByZXM6IFNlcnZlclJlc3BvbnNlKSA9PiB7CiAgY29uc3QgYmFzZSA9IGBodHRwOi8vbG9jYWxob3N0OiR7UE9SVH1gOwogIGNvbnN0IHVybCAgPSBuZXcgVVJMKHJlcS51cmwgPz8gIi8iLCBiYXNlKTsKCiAgLy8gQ09SUyBwcmUtZmxpZ2h0CiAgaWYgKHJlcS5tZXRob2QgPT09ICJPUFRJT05TIikgewogICAgcmVzLndyaXRlSGVhZCgyMDQsIHsKICAgICAgIkFjY2Vzcy1Db250cm9sLUFsbG93LU9yaWdpbiI6ICIqIiwKICAgICAgIkFjY2Vzcy1Db250cm9sLUFsbG93LUhlYWRlcnMiOiAiQ29udGVudC1UeXBlLCBBdXRob3JpemF0aW9uIiwKICAgICAgIkFjY2Vzcy1Db250cm9sLUFsbG93LU1ldGhvZHMiOiAiUE9TVCwgR0VULCBPUFRJT05TIiwKICAgIH0pOwogICAgcmVzLmVuZCgpOwogICAgcmV0dXJuOwogIH0KCiAgLy8gSGVhbHRoIGVuZHBvaW50CiAgaWYgKHJlcS5tZXRob2QgPT09ICJHRVQiICYmIHVybC5wYXRobmFtZSA9PT0gIi9oZWFsdGgiKSB7CiAgICBqc29uKHJlcywgMjAwLCB7IHN0YXR1czogIm9rIiwgbmFtZTogIlBva2VDbGF3IiwgdmVyc2lvbjogIjEuMC4wIiB9KTsKICAgIHJldHVybjsKICB9CgogIC8vIE1DUCBlbmRwb2ludAogIGlmICh1cmwucGF0aG5hbWUgPT09ICIvbWNwIikgewogICAgaWYgKCFpc0F1dGhvcmlzZWQocmVxLCB1cmwpKSB7CiAgICAgIGpzb24ocmVzLCA0MDEsIHsgZXJyb3I6ICJVbmF1dGhvcml6ZWQ6IHN1cHBseSA/dG9rZW49IG9yIEF1dGhvcml6YXRpb246IEJlYXJlciBoZWFkZXIiIH0pOwogICAgICByZXR1cm47CiAgICB9CgogICAgaWYgKHJlcS5tZXRob2QgIT09ICJQT1NUIikgewogICAgICBqc29uKHJlcywgNDA1LCB7IGVycm9yOiAiTWV0aG9kIE5vdCBBbGxvd2VkIiB9KTsKICAgICAgcmV0dXJuOwogICAgfQoKICAgIGxldCByYXcgPSAiIjsKICAgIGZvciBhd2FpdCAoY29uc3QgY2h1bmsgb2YgcmVxKSByYXcgKz0gY2h1bms7CgogICAgbGV0IGJvZHk6IFJlY29yZDxzdHJpbmcsIHVua25vd24+OwogICAgdHJ5IHsKICAgICAgYm9keSA9IEpTT04ucGFyc2UocmF3KTsKICAgIH0gY2F0Y2ggewogICAgICBqc29uKHJlcywgNDAwLCB7IGVycm9yOiAiSW52YWxpZCBKU09OIiB9KTsKICAgICAgcmV0dXJuOwogICAgfQoKICAgIGNvbnN0IHJlc3VsdCA9IGF3YWl0IGhhbmRsZVJQQyhib2R5KTsKICAgIGlmIChyZXN1bHQgPT09IG51bGwpIHsgcmVzLndyaXRlSGVhZCgyMDQpOyByZXMuZW5kKCk7IHJldHVybjsgfQogICAganNvbihyZXMsIDIwMCwgcmVzdWx0KTsKICAgIHJldHVybjsKICB9CgogIGpzb24ocmVzLCA0MDQsIHsgZXJyb3I6ICJOb3QgZm91bmQiIH0pOwp9KTsKCnNlcnZlci5saXN0ZW4oUE9SVCwgIjEyNy4wLjAuMSIsICgpID0+IHsKICBjb25zb2xlLmxvZyhgXG7wn5C+ICBQb2tlQ2xhdyBpcyBydW5uaW5nYCk7CiAgY29uc29sZS5sb2coYCAgICBMb2NhbCAgOiBodHRwOi8vMTI3LjAuMC4xOiR7UE9SVH0vbWNwYCk7CiAgaWYgKFRPS0VOKSB7CiAgICBjb25zb2xlLmxvZyhgICAgIEF1dGggICA6IHRva2VuIHJlcXVpcmVkICAoP3Rva2VuPS4uLiBvciBBdXRob3JpemF0aW9uOiBCZWFyZXIgLi4uKWApOwogIH0gZWxzZSB7CiAgICBjb25zb2xlLmxvZyhgICAgIEF1dGggICA6IE5PTkUgIOKAlCBzZXQgUE9LRUNMQVdfVE9LRU4gdG8gcmVxdWlyZSBhIHRva2VuYCk7CiAgfQogIGNvbnNvbGUubG9nKGAgICAgUm9vdHMgIDogJHtST09UUy5qb2luKCIsICIpfWApOwogIGNvbnNvbGUubG9nKGBcbiAgICBXYWl0aW5nIGZvciBQb2tl4oCmXG5gKTsKfSk7Cg==
+#!/usr/bin/env bun
+/**
+ * PokeClaw — Local MCP Server for Poke
+ * Gives Poke access to your MacBook's filesystem and terminal.
+ *
+ * Tools:
+ *   read_file      — Read a file's contents
+ *   write_file     — Write or overwrite a file
+ *   list_directory — List files/folders in a directory
+ *   search_files   — Search for files by glob pattern
+ *   run_command    — Execute a shell command and return output
+ *   get_env        — Read an environment variable
+ *
+ * Auth:
+ *   Set POKECLAW_TOKEN. Token accepted via:
+ *     - Query param:  /mcp?token=<your-token>
+ *     - Header:       Authorization: Bearer <your-token>
+ *
+ * Config (env vars):
+ *   POKECLAW_PORT   — Port to listen on (default: 3741)
+ *   POKECLAW_TOKEN  — Secret token (leave unset to disable auth)
+ *   POKECLAW_ROOTS  — Comma-separated allowed root paths (default: $HOME)
+ */
+
+import { createServer } from "http";
+import type { IncomingMessage, ServerResponse } from "http";
+import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync } from "fs";
+import { execSync } from "child_process";
+import { resolve, join, dirname, homedir } from "path";
+
+// ─── Config ────────────────────────────────────────────────────────────────────
+const PORT   = parseInt(process.env.POKECLAW_PORT  ?? "3741", 10);
+const TOKEN  = process.env.POKECLAW_TOKEN ?? "";
+const HOME   = homedir();
+const ROOTS: string[] = (process.env.POKECLAW_ROOTS ?? HOME)
+  .split(",")
+  .map((r) => r.trim().replace(/^~/, HOME))
+  .filter(Boolean);
+
+// ─── Logging ───────────────────────────────────────────────────────────────────
+function log(msg: string) {
+  const ts = new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  console.log(`[${ts}] ${msg}`);
+}
+
+function logToolUse(tool: string, args: Record<string, unknown>) {
+  const preview = Object.entries(args)
+    .map(([k, v]) => {
+      const s = String(v ?? "");
+      return `${k}=${s.length > 60 ? s.slice(0, 60) + "…" : s}`;
+    })
+    .join("  ");
+  console.log(`\n🐾 Poke is using tool: \x1b[36m${tool}\x1b[0m`);
+  if (preview) console.log(`   ${preview}`);
+}
+
+// ─── Auth ──────────────────────────────────────────────────────────────────────
+function isAuthorised(req: IncomingMessage, url: URL): boolean {
+  if (!TOKEN) return true;
+  // 1. ?token= query param
+  if (url.searchParams.get("token") === TOKEN) return true;
+  // 2. Authorization: Bearer <token>
+  const header = req.headers["authorization"] ?? "";
+  if (header.startsWith("Bearer ") && header.slice(7) === TOKEN) return true;
+  return false;
+}
+
+// ─── Path guard ────────────────────────────────────────────────────────────────
+function safePath(raw: string): string {
+  const p = resolve(raw.replace(/^~/, HOME));
+  const allowed = ROOTS.some((root) => p === resolve(root) || p.startsWith(resolve(root) + "/"));
+  if (!allowed) throw new Error(`Access denied: '${p}' is outside allowed roots (${ROOTS.join(", ")})`);
+  return p;
+}
+
+// ─── Dangerous-command guard ───────────────────────────────────────────────────
+const BLOCK = [
+  /\brm\s+-[a-z]*r[a-z]*f\s+\//,  // rm -rf /
+  /\bsudo\s+rm\b/,
+  /:\(\)\s*\{.*\}/,                 // fork bomb
+  /\bmkfs\b/,
+  /\bdd\s+if=/,
+  />\s*\/dev\/sd[a-z]/,
+];
+function blocked(cmd: string): boolean {
+  return BLOCK.some((re) => re.test(cmd));
+}
+
+// ─── Tool implementations ──────────────────────────────────────────────────────
+
+function toolReadFile(args: Record<string, unknown>): string {
+  if (!args.path) throw new Error("path is required");
+  const p = safePath(String(args.path));
+  return readFileSync(p, "utf-8");
+}
+
+function toolWriteFile(args: Record<string, unknown>): string {
+  if (!args.path)    throw new Error("path is required");
+  if (args.content === undefined) throw new Error("content is required");
+  const p       = safePath(String(args.path));
+  const content = String(args.content);
+  const dir     = dirname(p);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(p, content, "utf-8");
+  return `Written ${content.length} chars to ${p}`;
+}
+
+function toolListDirectory(args: Record<string, unknown>): string {
+  const raw = args.path ? String(args.path) : HOME;
+  const p   = safePath(raw);
+  const entries = readdirSync(p).map((name) => {
+    try {
+      const full = join(p, name);
+      const st   = statSync(full);
+      const type = st.isDirectory() ? "dir " : "file";
+      const size = st.isFile() ? ` (${st.size} B)` : "";
+      return `${type}  ${name}${size}`;
+    } catch {
+      return `?     ${name}`;
+    }
+  });
+  return entries.length ? entries.join("\n") : "(empty)";
+}
+
+async function toolSearchFiles(args: Record<string, unknown>): Promise<string> {
+  if (!args.root)    throw new Error("root is required");
+  if (!args.pattern) throw new Error("pattern is required");
+  const root    = safePath(String(args.root));
+  const pattern = String(args.pattern);
+  // Use find(1) so we don't need an npm dependency for glob
+  const cmd = `find "${root}" -name "${pattern}" 2>/dev/null | head -200`;
+  const out = execSync(cmd, { encoding: "utf-8", timeout: 15_000 });
+  return out.trim() || "No files matched.";
+}
+
+function toolRunCommand(args: Record<string, unknown>): string {
+  if (!args.command) throw new Error("command is required");
+  const command   = String(args.command);
+  const cwd       = args.cwd ? safePath(String(args.cwd)) : HOME;
+  const timeoutMs = args.timeout_ms ? parseInt(String(args.timeout_ms), 10) : 30_000;
+  if (blocked(command)) throw new Error("Blocked: command matched a dangerous pattern");
+  try {
+    const out = execSync(command, {
+      cwd,
+      timeout: timeoutMs,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return out || "(no output)";
+  } catch (e: unknown) {
+    if (e && typeof e === "object" && "stdout" in e) {
+      const err = e as { stdout?: string; stderr?: string; message?: string };
+      const combined = [err.stdout, err.stderr].filter(Boolean).join("\n").trim();
+      throw new Error(combined || (err.message ?? "Command failed"));
+    }
+    throw e;
+  }
+}
+
+function toolGetEnv(args: Record<string, unknown>): string {
+  if (!args.name) throw new Error("name is required");
+  const val = process.env[String(args.name)];
+  return val !== undefined ? val : "(not set)";
+}
+
+// ─── MCP tool schemas ──────────────────────────────────────────────────────────
+const TOOLS = [
+  {
+    name: "read_file",
+    description: "Read the full contents of a file on the local Mac.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Absolute or ~ path to the file." },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "write_file",
+    description: "Write (create or overwrite) a file on the local Mac.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path:    { type: "string", description: "Absolute or ~ path to the file." },
+        content: { type: "string", description: "Text content to write." },
+      },
+      required: ["path", "content"],
+    },
+  },
+  {
+    name: "list_directory",
+    description: "List files and folders inside a directory.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Directory path. Defaults to home." },
+      },
+    },
+  },
+  {
+    name: "search_files",
+    description: "Search for files by name pattern (glob) under a directory.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        root:    { type: "string", description: "Directory to search in." },
+        pattern: { type: "string", description: "Glob pattern, e.g. '**/*.ts'" },
+      },
+      required: ["root", "pattern"],
+    },
+  },
+  {
+    name: "run_command",
+    description: "Run a shell command on the Mac and return stdout/stderr. Commands run in your home directory.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        command:    { type: "string",  description: "Shell command to execute." },
+        cwd:        { type: "string",  description: "Working directory (optional, defaults to home)." },
+        timeout_ms: { type: "number",  description: "Max ms to wait (default 30000)." },
+      },
+      required: ["command"],
+    },
+  },
+  {
+    name: "get_env",
+    description: "Read an environment variable from the Mac.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Environment variable name." },
+      },
+      required: ["name"],
+    },
+  },
+];
+
+// ─── MCP JSON-RPC handler ───────────────────────────────────────────────────��──
+async function handleRPC(body: Record<string, unknown>): Promise<unknown> {
+  const method = String(body.method ?? "");
+  const id     = body.id ?? null;
+  const params = (body.params ?? {}) as Record<string, unknown>;
+
+  const ok  = (result: unknown) => ({ jsonrpc: "2.0", id, result });
+  const err = (code: number, message: string) => ({ jsonrpc: "2.0", id, error: { code, message } });
+
+  try {
+    switch (method) {
+      case "initialize":
+        return ok({
+          protocolVersion: "2024-11-05",
+          serverInfo: { name: "PokeClaw", version: "1.0.0" },
+          capabilities: { tools: {} },
+        });
+
+      case "notifications/initialized":
+        return null; // no response for notifications
+
+      case "tools/list":
+        return ok({ tools: TOOLS });
+
+      case "tools/call": {
+        const toolName = String(params.name ?? "");
+        const args     = (params.arguments ?? {}) as Record<string, unknown>;
+
+        logToolUse(toolName, args);
+
+        let text: string;
+        switch (toolName) {
+          case "read_file":      text = toolReadFile(args);          break;
+          case "write_file":     text = toolWriteFile(args);         break;
+          case "list_directory": text = toolListDirectory(args);     break;
+          case "search_files":   text = await toolSearchFiles(args); break;
+          case "run_command":    text = toolRunCommand(args);        break;
+          case "get_env":        text = toolGetEnv(args);            break;
+          default:
+            return err(-32601, `Unknown tool: ${toolName}`);
+        }
+
+        return ok({ content: [{ type: "text", text }] });
+      }
+
+      case "ping":
+        return ok({});
+
+      default:
+        return err(-32601, `Method not found: ${method}`);
+    }
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    log(`⚠️  Error in ${method}: ${message}`);
+    return err(-32603, message);
+  }
+}
+
+// ─── HTTP server ───────────────────────────────────────────────────────────────
+function json(res: ServerResponse, status: number, data: unknown) {
+  const body = JSON.stringify(data);
+  res.writeHead(status, {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  });
+  res.end(body);
+}
+
+const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+  const base = `http://localhost:${PORT}`;
+  const url  = new URL(req.url ?? "/", base);
+
+  // CORS pre-flight
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+    });
+    res.end();
+    return;
+  }
+
+  // Health endpoint
+  if (req.method === "GET" && url.pathname === "/health") {
+    json(res, 200, { status: "ok", name: "PokeClaw", version: "1.0.0" });
+    return;
+  }
+
+  // MCP endpoint
+  if (url.pathname === "/mcp") {
+    if (!isAuthorised(req, url)) {
+      json(res, 401, { error: "Unauthorized: supply ?token= or Authorization: Bearer header" });
+      return;
+    }
+
+    if (req.method !== "POST") {
+      json(res, 405, { error: "Method Not Allowed" });
+      return;
+    }
+
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      json(res, 400, { error: "Invalid JSON" });
+      return;
+    }
+
+    const result = await handleRPC(body);
+    if (result === null) { res.writeHead(204); res.end(); return; }
+    json(res, 200, result);
+    return;
+  }
+
+  json(res, 404, { error: "Not found" });
+});
+
+server.listen(PORT, "127.0.0.1", () => {
+  console.log(`\n🐾  PokeClaw is running`);
+  console.log(`    Local  : http://127.0.0.1:${PORT}/mcp`);
+  if (TOKEN) {
+    console.log(`    Auth   : token required  (?token=... or Authorization: Bearer ...)`);
+  } else {
+    console.log(`    Auth   : NONE  — set POKECLAW_TOKEN to require a token`);
+  }
+  console.log(`    Roots  : ${ROOTS.join(", ")}`);
+  console.log(`\n    Waiting for Poke…\n`);
+});
