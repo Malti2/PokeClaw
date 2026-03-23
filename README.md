@@ -1,19 +1,19 @@
 # 🐾 PokeClaw
 
-**PokeClaw** is a local [MCP](https://modelcontextprotocol.io) server that gives [Poke](https://poke.com) access to your Mac's filesystem and terminal.
+**PokeClaw** is a local [MCP](https://modelcontextprotocol.io) server that gives [Poke](https://poke.com) access to your Mac or Linux machine's filesystem and terminal.
 
 ## What is Poke?
 
 [Poke](https://poke.com) is your personal AI — the assistant you text to get things done. Poke can manage your emails, calendar, reminders, integrations, and much more, all through a simple conversation.
 
-By default, Poke lives in the cloud and doesn't have access to files on your computer. **PokeClaw changes that.** It runs a small server locally on your Mac and creates a secure tunnel so Poke can reach it. Once connected, you can ask Poke things like:
+By default, Poke lives in the cloud and doesn't have access to files on your computer. **PokeClaw changes that.** It runs a small server locally on your machine and creates a secure tunnel so Poke can reach it. Once connected, you can ask Poke things like:
 
 - "Read my project notes in ~/Documents/notes.md"
 - "Run `git status` in my repo"
 - "List everything on my Desktop"
 - "What is my NODE_ENV set to?"
 
-PokeClaw works on any Mac — iMac, Mac mini, Mac Pro, MacBook Air, MacBook Pro, etc.
+PokeClaw works on **macOS** (any Mac) and **Linux** (Debian/Ubuntu, Fedora/RHEL, Arch, and compatible distributions).
 
 ---
 
@@ -22,7 +22,7 @@ PokeClaw works on any Mac — iMac, Mac mini, Mac Pro, MacBook Air, MacBook Pro,
 | Tool | What it does |
 |---|---|
 | `read_file` | Read any file in allowed paths |
-| `write_file` | Create or edit files on your Mac |
+| `write_file` | Create or edit files on your machine |
 | `list_directory` | Browse folder contents |
 | `search_files` | Find files by glob pattern (e.g. `**/*.ts`) |
 | `run_command` | Run any shell command (`git`, `npm`, `brew`, `python`…) |
@@ -32,10 +32,12 @@ PokeClaw works on any Mac — iMac, Mac mini, Mac Pro, MacBook Air, MacBook Pro,
 
 ## Automated Setup (Recommended)
 
-The `start-pokeclaw.sh` script handles the **full setup and launch** automatically. Just run it once:
+Choose the script that matches your OS. Both handle the **full setup and launch** automatically.
+
+### macOS
 
 ```bash
-bash start-pokeclaw.sh
+bash start-pokeclaw-mac.sh
 ```
 
 The script will:
@@ -47,9 +49,29 @@ The script will:
 6. **Optionally save settings** to `~/.zshrc` for future sessions
 7. **Launch the server and cloudflared tunnel**, then print your public MCP URL
 
-No manual steps required on a fresh Mac.
+> **Quiet mode:** Relaunch with `bash start-pokeclaw-mac.sh --quiet` to skip all prompts and use your saved settings.
 
-> **Quiet mode:** If you've already run the onboarding once, relaunch with `bash start-pokeclaw.sh --quiet` to skip all prompts and use your saved settings.
+---
+
+### Linux
+
+```bash
+bash start-pokeclaw-linux.sh
+```
+
+The Linux script performs the same steps as the macOS version, with the following differences:
+
+- **No Homebrew** — uses your system package manager instead (`apt` for Debian/Ubuntu, `dnf` for Fedora/RHEL, `pacman` for Arch)
+- **cloudflared** is installed via the official Cloudflare package repository (apt/dnf) or AUR (Arch)
+- Settings are saved to `~/.bashrc` instead of `~/.zshrc`
+- Port-in-use detection uses `lsof` with a `fuser` fallback
+
+Supported distributions:
+- Debian / Ubuntu (and derivatives): uses `apt`
+- Fedora / RHEL / CentOS Stream: uses `dnf`
+- Arch Linux (and derivatives): uses `pacman` + AUR helper (`yay` or `paru`) for cloudflared
+
+> **Quiet mode:** Relaunch with `bash start-pokeclaw-linux.sh --quiet` to skip all prompts and use your saved settings.
 
 ---
 
@@ -60,7 +82,8 @@ If you prefer to configure things yourself:
 ### Prerequisites
 
 - Node.js 18+ or Bun
-- cloudflared: `brew install cloudflared`
+- **macOS:** cloudflared via `brew install cloudflared`
+- **Linux:** cloudflared via your package manager or from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
 
 ### Step 1 — Set up the server
 
@@ -80,12 +103,20 @@ npm init -y && npm install glob && npm install -D typescript @types/node
 
 ### Step 2 — Configure environment variables
 
-Add to your `~/.zshrc` or pass inline:
+**macOS** — add to `~/.zshrc`:
 
 ```bash
 export POKECLAW_PORT=3741
-export POKECLAW_ROOTS="$HOME"                   # restrict to home folder
-export POKECLAW_TOKEN="your-secret-token-here"  # recommended
+export POKECLAW_ROOTS="$HOME"
+export POKECLAW_TOKEN="your-secret-token-here"
+```
+
+**Linux** — add to `~/.bashrc`:
+
+```bash
+export POKECLAW_PORT=3741
+export POKECLAW_ROOTS="$HOME"
+export POKECLAW_TOKEN="your-secret-token-here"
 ```
 
 To restrict to specific folders only:
@@ -96,8 +127,14 @@ export POKECLAW_ROOTS="$HOME/Documents,$HOME/Desktop,$HOME/Projects"
 
 ### Step 3 — Start PokeClaw
 
+**macOS:**
 ```bash
-bash start-pokeclaw.sh
+bash start-pokeclaw-mac.sh
+```
+
+**Linux:**
+```bash
+bash start-pokeclaw-linux.sh
 ```
 
 Or start each component manually:
@@ -128,6 +165,8 @@ cloudflared tunnel --url http://127.0.0.1:3741
 ---
 
 ## Step 5 (optional) — Auto-start on login
+
+### macOS — LaunchAgent
 
 Save as `~/Library/LaunchAgents/com.pokeclaw.plist`:
 
@@ -164,6 +203,36 @@ Load it:
 launchctl load ~/Library/LaunchAgents/com.pokeclaw.plist
 ```
 
+### Linux — systemd user service
+
+Save as `~/.config/systemd/user/pokeclaw.service`:
+
+```ini
+[Unit]
+Description=PokeClaw MCP Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/your-username/.bun/bin/bun run /home/your-username/pokeclaw/server.ts
+Environment=POKECLAW_PORT=3741
+Environment=POKECLAW_ROOTS=/home/your-username
+Environment=POKECLAW_TOKEN=your-secret-token-here
+Restart=on-failure
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+```
+
+Enable and start:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now pokeclaw
+```
+
 ---
 
 ## Security notes
@@ -186,8 +255,10 @@ launchctl load ~/Library/LaunchAgents/com.pokeclaw.plist
 | cloudflared URL changes | Restart → get new URL → update in [Poke settings](https://poke.com/settings/integrations) |
 | Permission denied on a file | Add its parent directory to `POKECLAW_ROOTS` |
 | Command times out | Pass `timeout_ms` in your request to Poke |
-| Bun not found after install | Run `source ~/.zshrc` or open a new terminal tab |
+| Bun not found after install | Run `source ~/.zshrc` (macOS) or `source ~/.bashrc` (Linux), or open a new terminal |
 | Poke rejects the URL | Use the `?token=` query parameter format instead of the Authorization header |
+| Linux: `lsb_release` not found | Install with `sudo apt install lsb-release` or `sudo dnf install redhat-lsb-core` |
+| Linux: cloudflared not in repo | Install the binary directly from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/ |
 
 For a permanent (stable) tunnel URL, create a named Cloudflare tunnel:
 https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/
