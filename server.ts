@@ -26,7 +26,8 @@ import { createServer } from "http";
 import type { IncomingMessage, ServerResponse } from "http";
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync } from "fs";
 import { execSync } from "child_process";
-import { resolve, join, dirname, homedir } from "path";
+import { resolve, join, dirname } from "path";
+import { homedir } from "os";
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 const PORT   = parseInt(process.env.POKECLAW_PORT  ?? "3741", 10);
