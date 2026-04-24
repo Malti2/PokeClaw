@@ -31,7 +31,7 @@ struct PokeClawMacApp: App {
             PokeClawMenuBarPopoverView(model: model)
                 .preferredColorScheme(Self.colorScheme(named: appearanceMode))
         } label: {
-            Image(systemName: "pawprint.fill")
+            PokeClawMenuBarIcon(isConnected: model.isConnected)
         }
         .menuBarExtraStyle(.window)
     }
@@ -60,6 +60,7 @@ struct PokeClawSettingsView: View {
     @ObservedObject var model: PokeClawConnectionModel
     @AppStorage("pokeclaw.accentColor") private var accentColorName = "blue"
     @AppStorage("pokeclaw.appearanceMode") private var appearanceMode = "dark"
+    @AppStorage("pokeclaw.autoStartOnLogin") private var autoStartOnLogin = false
     @State private var selectedPane: SettingsPane = .connection
 
     private enum SettingsPane: String, CaseIterable, Identifiable {
@@ -113,6 +114,12 @@ struct PokeClawSettingsView: View {
                     aboutPane
                 }
             }
+        }
+        .task {
+            await model.syncLaunchAgent(enabled: autoStartOnLogin)
+        }
+        .onChange(of: autoStartOnLogin) { enabled in
+            Task { await model.updateLaunchAgent(enabled: enabled) }
         }
         .padding(20)
         .frame(width: 460)
@@ -182,6 +189,25 @@ struct PokeClawSettingsView: View {
                         .font(.system(.caption, design: .monospaced))
                         .textSelection(.enabled)
                 }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle(isOn: $autoStartOnLogin) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Auto-Start on Login")
+                            Text("Creates a LaunchAgent plist in ~/Library/LaunchAgents so PokeClaw starts when you log into macOS.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+
+                    Text(model.launchAgentPath)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -213,6 +239,25 @@ struct PokeClawSettingsView: View {
     }
 }
 
+struct PokeClawMenuBarIcon: View {
+    let isConnected: Bool
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Image(systemName: "pawprint.fill")
+                .symbolRenderingMode(.hierarchical)
+            Circle()
+                .fill(isConnected ? Color.green : Color.red)
+                .frame(width: 7, height: 7)
+                .overlay(Circle().stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 1.5))
+                .offset(x: 2, y: 2)
+        }
+        .font(.system(size: 14, weight: .semibold))
+        .padding(.trailing, 1)
+        .accessibilityLabel(isConnected ? "PokeClaw connected" : "PokeClaw disconnected")
+    }
+}
+
 struct PokeClawMenuBarPopoverView: View {
     @ObservedObject var model: PokeClawConnectionModel
     @State private var isRunningCommand: Bool = false
@@ -224,12 +269,17 @@ struct PokeClawMenuBarPopoverView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text("PokeClaw")
                         .font(.headline)
-                    Text(model.statusMessage)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(model.isConnected ? .green : .red)
+                            .frame(width: 7, height: 7)
+                        Text(model.serverStatus)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
                 Button("Open") {
@@ -665,13 +715,70 @@ final class PokeClawConnectionModel: ObservableObject {
 
     private func metricValue(for key: String, in output: String) -> String? {
         output
-            .split(separator: "
-")
-            .first(where: { $0.hasPrefix("(key)=") })
+            .split(separator: "\n")
+            .first(where: { $0.hasPrefix("\(key)=") })
             .flatMap { line in
                 let pieces = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
                 return pieces.count == 2 ? String(pieces[1]).trimmingCharacters(in: .whitespacesAndNewlines) : nil
             }
+    }
+
+    private var launchAgentLabel: String { "com.malti2.pokeclaw" }
+
+    private var launchAgentURL: URL {
+        let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library")
+        return library.appendingPathComponent("LaunchAgents").appendingPathComponent("\(launchAgentLabel).plist")
+    }
+
+    var launchAgentPath: String { launchAgentURL.path }
+
+    private func launchAgentPlistData() throws -> Data {
+        let executablePath = Bundle.main.executableURL?.path ?? Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/PokeClaw").path
+        let launchAgent: [String: Any] = [
+            "Label": launchAgentLabel,
+            "ProgramArguments": [executablePath],
+            "RunAtLoad": true,
+            "KeepAlive": false,
+            "StandardOutPath": FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("PokeClaw/pokeclaw-launchagent.log").path ?? "",
+            "StandardErrorPath": FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("PokeClaw/pokeclaw-launchagent.log").path ?? ""
+        ]
+        return try PropertyListSerialization.data(fromPropertyList: launchAgent, format: .xml, options: 0)
+    }
+
+    func syncLaunchAgent(enabled: Bool) async {
+        let exists = FileManager.default.fileExists(atPath: launchAgentURL.path)
+        guard enabled != exists else { return }
+        await updateLaunchAgent(enabled: enabled)
+    }
+
+    func updateLaunchAgent(enabled: Bool) async {
+        do {
+            if enabled {
+                try installLaunchAgent()
+                statusMessage = "Auto-start enabled"
+                lastAction = "Enabled auto-start on login"
+            } else {
+                try removeLaunchAgent()
+                statusMessage = "Auto-start disabled"
+                lastAction = "Disabled auto-start on login"
+            }
+        } catch {
+            statusMessage = "Auto-start update failed"
+            lastAction = "LaunchAgent update failed"
+        }
+    }
+
+    private func installLaunchAgent() throws {
+        let directory = launchAgentURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)
+        let data = try launchAgentPlistData()
+        try data.write(to: launchAgentURL, options: .atomic)
+    }
+
+    private func removeLaunchAgent() throws {
+        if FileManager.default.fileExists(atPath: launchAgentURL.path) {
+            try FileManager.default.removeItem(at: launchAgentURL)
+        }
     }
 
     private func appendSystemMetricHistory(_ value: String?, to history: inout [Double]) {
