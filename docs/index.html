@@ -4,42 +4,77 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
-    <meta name="theme-color" content="#0b0d12" />
+    <meta name="theme-color" content="#0a0c10" />
     <title>PokeClaw</title>
-    <meta name="description" content="PokeClaw — a minimal MCP server and native Mac app." />
+    <meta name="description" content="PokeClaw is a minimal MCP server and native Mac app." />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <a class="brand" href="#top" aria-label="PokeClaw home">PokeClaw</a>
-      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle dark and light mode">
-        <span class="theme-toggle-dot" aria-hidden="true"></span>
-        <span class="theme-toggle-label">Dark</span>
-      </button>
-    </header>
+    <div class="page-shell">
+      <header class="topbar glass fade-in">
+        <a class="brand" href="#top" aria-label="PokeClaw home">PokeClaw</a>
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle dark and light mode">
+          <span class="theme-toggle-dot" aria-hidden="true"></span>
+          <span class="theme-toggle-label">Dark</span>
+        </button>
+      </header>
 
-    <main id="top" class="page">
-      <section class="hero">
-        <p class="eyebrow">MCP server · native Mac app</p>
-        <h1>PokeClaw.</h1>
-        <p class="lede">Minimal control. Clean interface. Built for Mac.</p>
-      </section>
+      <main id="top">
+        <section class="hero fade-in" data-reveal>
+          <p class="eyebrow">MCP server · Native Mac app · Automation</p>
+          <h1>Built to feel like Apple.</h1>
+          <p class="lede">
+            PokeClaw brings a calm, premium interface to your AI workflow — minimal, fast, and made for Mac.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#features">Explore</a>
+            <a class="button button-secondary" href="#install">Install</a>
+          </div>
+        </section>
 
-      <section class="cards" aria-label="Features">
-        <article class="card">
-          <span class="card-label">MCP Server</span>
-          <p>Simple. Connected. Fast.</p>
-        </article>
-        <article class="card">
-          <span class="card-label">Native Mac App</span>
-          <p>Quietly integrated with macOS.</p>
-        </article>
-        <article class="card">
-          <span class="card-label">Designed for focus</span>
-          <p>Whitespace first. Everything else later.</p>
-        </article>
-      </section>
-    </main>
+        <section class="feature-grid" id="features" aria-label="Features">
+          <article class="card glass fade-in" data-reveal>
+            <span class="card-label">MCP Server</span>
+            <h2>Structured, predictable, fast.</h2>
+            <p>
+              A clean server layer for connecting tools, automations, and workflows without visual noise.
+            </p>
+          </article>
+
+          <article class="card glass fade-in" data-reveal>
+            <span class="card-label">Native Mac App</span>
+            <h2>Feels right on macOS.</h2>
+            <p>
+              System-first navigation, refined surfaces, and the kind of spacing that disappears into the background.
+            </p>
+          </article>
+
+          <article class="card glass fade-in" data-reveal>
+            <span class="card-label">Automation</span>
+            <h2>Less setup. More flow.</h2>
+            <p>
+              Lightweight actions and repeatable tasks that keep the experience focused and effortless.
+            </p>
+          </article>
+        </section>
+
+        <section class="terminal-grid fade-in" data-reveal id="install" aria-label="Install and use">
+          <article class="terminal glass">
+            <div class="terminal-title">Install</div>
+            <pre><code>git clone https://github.com/Malti2/PokeClaw.git
+cd PokeClaw
+git checkout beta</code></pre>
+          </article>
+
+          <article class="terminal glass">
+            <div class="terminal-title">Run</div>
+            <pre><code>npm install
+npm run dev
+open -a PokeClaw</code></pre>
+          </article>
+        </section>
+      </main>
+    </div>
 
     <script src="./script.js"></script>
   </body>
