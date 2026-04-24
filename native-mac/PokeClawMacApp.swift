@@ -4,13 +4,76 @@ import SwiftUI
 @main
 struct PokeClawMacApp: App {
     @StateObject private var model = PokeClawConnectionModel()
+    @AppStorage("pokeclaw.accentColor") private var accentColorName = "blue"
 
     var body: some Scene {
         WindowGroup {
             ContentView(model: model)
         }
+        .tint(Self.accentColor(named: accentColorName))
         .windowResizability(.contentSize)
         .windowToolbarStyle(.unifiedCompact)
+
+        Settings {
+            PokeClawSettingsView()
+        }
+        .tint(Self.accentColor(named: accentColorName))
+    }
+
+    static func accentColor(named name: String) -> Color {
+        switch name {
+        case "purple": return .purple
+        case "pink": return .pink
+        case "red": return .red
+        case "orange": return .orange
+        case "yellow": return .yellow
+        case "green": return .green
+        case "mint": return .mint
+        case "teal": return .teal
+        case "indigo": return .indigo
+        default: return .blue
+        }
+    }
+}
+
+struct PokeClawSettingsView: View {
+    @AppStorage("pokeclaw.accentColor") private var accentColorName = "blue"
+
+    private let accentOptions: [(name: String, label: String, color: Color)] = [
+        ("blue", "Blue", .blue),
+        ("purple", "Purple", .purple),
+        ("pink", "Pink", .pink),
+        ("red", "Red", .red),
+        ("orange", "Orange", .orange),
+        ("yellow", "Yellow", .yellow),
+        ("green", "Green", .green),
+        ("mint", "Mint", .mint),
+        ("teal", "Teal", .teal),
+        ("indigo", "Indigo", .indigo)
+    ]
+
+    var body: some View {
+        Form {
+            Section("Appearance") {
+                Picker("Accent color", selection: $accentColorName) {
+                    ForEach(accentOptions, id: \.name) { option in
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(option.color)
+                                .frame(width: 12, height: 12)
+                            Text(option.label)
+                        }
+                        .tag(option.name)
+                    }
+                }
+                .pickerStyle(.menu)
+                Text("Changes apply immediately to the app tint and controls.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(20)
+        .frame(width: 360)
     }
 }
 
