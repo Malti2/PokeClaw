@@ -32,7 +32,6 @@ import { execSync } from "child_process";
 import { resolve, join, dirname } from "path";
 import { homedir, hostname, platform, release, arch } from "os";
 
-// ─── Config ────────────────────────────────────────────────────────────────────
 const APP_NAME = "PokeClaw";
 const VERSION = "1.1.0-beta";
 const PORT = parseInt(process.env.POKECLAW_PORT ?? "3741", 10);
@@ -45,16 +44,7 @@ const ROOTS: string[] = (process.env.POKECLAW_ROOTS ?? HOME)
 const LOG_LEVEL = (process.env.POKECLAW_LOG_LEVEL ?? "info").toLowerCase();
 const RECENT_LOG_LIMIT = 250;
 const recentLogs: string[] = [];
-
-// ─── Logging ───────────────────────────────────────────────────────────────────
-const supportsColor = Boolean(process.stdout.isTTY && process.env.NO_COLOR !== "1");
-const color = {
-  cyan: (s: string) => supportsColor ? `\x1b[36m${s}\x1b[0m` : s,
-  green: (s: string) => supportsColor ? `\x1b[32m${s}\x1b[0m` : s,
-  yellow: (s: string) => supportsColor ? `\x1b[33m${s}\x1b[0m` : s,
-  red: (s: string) => supportsColor ? `\x1b[31m${s}\x1b[0m` : s,
-  dim: (s: string) => supportsColor ? `\x1b[2m${s}\x1b[0m` : s,
-};
+const recentConsole: { stream: "stdout" | "stderr"; line: string }[] = [];
 
 function timestamp() {
   return new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -65,12 +55,28 @@ function pushRecentLog(entry: string) {
   if (recentLogs.length > RECENT_LOG_LIMIT) recentLogs.splice(0, recentLogs.length - RECENT_LOG_LIMIT);
 }
 
+function pushConsole(stream: "stdout" | "stderr", line: string) {
+  recentConsole.push({ stream, line });
+  if (recentConsole.length > RECENT_LOG_LIMIT) recentConsole.splice(0, recentConsole.length - RECENT_LOG_LIMIT);
+}
+
+function emitConsole(stream: "stdout" | "stderr", message: string) {
+  const line = `[${timestamp()}] ${message}`;
+  pushConsole(stream, line);
+  if (stream === "stderr") {
+    console.error(message);
+  } else {
+    console.log(message);
+  }
+}
+
 function log(level: "info" | "warn" | "error" | "debug", msg: string) {
   if (level === "debug" && LOG_LEVEL !== "debug") return;
-  const prefix = level === "error" ? color.red("error") : level === "warn" ? color.yellow("warn") : level === "debug" ? color.dim("debug") : color.green("info");
-  const entry = `[${timestamp()}] ${level.toUpperCase()} ${msg}`;
+  const prefix = level.toUpperCase();
+  const entry = `[${timestamp()}] ${prefix} ${msg}`;
   pushRecentLog(entry);
-  console.log(`[${timestamp()}] ${prefix} ${msg}`);
+  const stream = level === "error" ? "stderr" : "stdout";
+  emitConsole(stream, `[${timestamp()}] ${prefix} ${msg}`);
 }
 
 function previewValue(v: unknown): string {
@@ -87,11 +93,10 @@ function logToolUse(tool: string, args: Record<string, unknown>) {
     .join("  ");
   const entry = `TOOL ${tool}${preview ? ` :: ${preview}` : ""}`;
   pushRecentLog(`[${timestamp()}] ${entry}`);
-  console.log(`\n🦞 Poke is using tool: ${color.cyan(tool)}`);
-  if (preview) console.log(`   ${preview}`);
+  emitConsole("stdout", `Poke is using tool: ${tool}`);
+  if (preview) emitConsole("stdout", `   ${preview}`);
 }
 
-// ─── Auth ──────────────────────────────────────────────────────────────────────
 function isAuthorised(req: IncomingMessage, url: URL): boolean {
   if (!TOKEN) return true;
   if (url.searchParams.get("token") === TOKEN) return true;
@@ -100,7 +105,6 @@ function isAuthorised(req: IncomingMessage, url: URL): boolean {
   return false;
 }
 
-// ─── Path guard ────────────────────────────────────────────────────────────────
 function safePath(raw: string): string {
   const p = resolve(raw.replace(/^~/, HOME));
   const allowed = ROOTS.some((root) => p === resolve(root) || p.startsWith(resolve(root) + "/"));
@@ -108,7 +112,6 @@ function safePath(raw: string): string {
   return p;
 }
 
-// ─── Dangerous-command guard ───────────────────────────────────────────────────
 const BLOCK = [
   /\brm\s+-[a-z]*r[a-z]*f\s+\//,
   /\bsudo\s+rm\b/,
@@ -129,7 +132,6 @@ function execSearchCommand(command: string): string {
   return execSync(command, { encoding: "utf-8", timeout: 15_000, stdio: ["pipe", "pipe", "pipe"] }).trim();
 }
 
-// ─── Tool implementations ──────────────────────────────────────────────────────
 function toolReadFile(args: Record<string, unknown>): string {
   if (!args.path) throw new Error("path is required");
   const p = safePath(String(args.path));
@@ -235,131 +237,36 @@ function toolGetEnv(args: Record<string, unknown>): string {
   return val !== undefined ? val : "(not set)";
 }
 
-// ─── MCP tool schemas ──────────────────────────────────────────────────────────
 const TOOLS = [
-  {
-    name: "read_file",
-    description: "Read the full contents of a file on the local Mac.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        path: { type: "string", description: "Absolute or ~ path to the file." },
-      },
-      required: ["path"],
-    },
-  },
-  {
-    name: "write_file",
-    description: "Write (create or overwrite) a file on the local Mac.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        path: { type: "string", description: "Absolute or ~ path to the file." },
-        content: { type: "string", description: "Text content to write." },
-      },
-      required: ["path", "content"],
-    },
-  },
-  {
-    name: "list_directory",
-    description: "List files and folders inside a directory.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        path: { type: "string", description: "Directory path. Defaults to home." },
-      },
-    },
-  },
-  {
-    name: "search_files",
-    description: "Search for files by name pattern (glob) under a directory.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        root: { type: "string", description: "Directory to search in." },
-        pattern: { type: "string", description: "Glob pattern, e.g. '**/*.ts'" },
-      },
-      required: ["root", "pattern"],
-    },
-  },
-  {
-    name: "search_text",
-    description: "Search for text inside files below a directory.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        root: { type: "string", description: "Directory to search in." },
-        query: { type: "string", description: "Text or regex to search for." },
-        case_sensitive: { type: "boolean", description: "Match case exactly." },
-        max_results: { type: "number", description: "Maximum number of results to return." },
-      },
-      required: ["root", "query"],
-    },
-  },
-  {
-    name: "run_command",
-    description: "Run a shell command on the Mac and return stdout/stderr. Commands run in your home directory.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        command: { type: "string", description: "Shell command to execute." },
-        cwd: { type: "string", description: "Working directory (optional, defaults to home)." },
-        timeout_ms: { type: "number", description: "Max ms to wait (default 30000)." },
-      },
-      required: ["command"],
-    },
-  },
-  {
-    name: "get_env",
-    description: "Read an environment variable from the Mac.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        name: { type: "string", description: "Environment variable name." },
-      },
-      required: ["name"],
-    },
-  },
-  {
-    name: "system_info",
-    description: "Get machine and runtime details for debugging and support.",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
-  },
+  { name: "read_file", description: "Read the full contents of a file on the local Mac.", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
+  { name: "write_file", description: "Write (create or overwrite) a file on the local Mac.", inputSchema: { type: "object", properties: { path: { type: "string" }, content: { type: "string" } }, required: ["path", "content"] } },
+  { name: "list_directory", description: "List files and folders inside a directory.", inputSchema: { type: "object", properties: { path: { type: "string" } } } },
+  { name: "search_files", description: "Search for files by name pattern (glob) under a directory.", inputSchema: { type: "object", properties: { root: { type: "string" }, pattern: { type: "string" } }, required: ["root", "pattern"] } },
+  { name: "search_text", description: "Search for text inside files below a directory.", inputSchema: { type: "object", properties: { root: { type: "string" }, query: { type: "string" }, case_sensitive: { type: "boolean" }, max_results: { type: "number" } }, required: ["root", "query"] } },
+  { name: "run_command", description: "Run a shell command on the Mac and return stdout/stderr. Commands run in your home directory.", inputSchema: { type: "object", properties: { command: { type: "string" }, cwd: { type: "string" }, timeout_ms: { type: "number" } }, required: ["command"] } },
+  { name: "get_env", description: "Read an environment variable from the Mac.", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
+  { name: "system_info", description: "Get machine and runtime details for debugging and support.", inputSchema: { type: "object", properties: {} } },
 ];
 
-// ─── MCP JSON-RPC handler ──────────────────────────────────────────────────────
 async function handleRPC(body: Record<string, unknown>): Promise<unknown> {
   const method = String(body.method ?? "");
   const id = body.id ?? null;
   const params = (body.params ?? {}) as Record<string, unknown>;
-
   const ok = (result: unknown) => ({ jsonrpc: "2.0", id, result });
   const err = (code: number, message: string) => ({ jsonrpc: "2.0", id, error: { code, message } });
 
   try {
     switch (method) {
       case "initialize":
-        return ok({
-          protocolVersion: "2024-11-05",
-          serverInfo: { name: APP_NAME, version: VERSION },
-          capabilities: { tools: {} },
-        });
-
+        return ok({ protocolVersion: "2024-11-05", serverInfo: { name: APP_NAME, version: VERSION }, capabilities: { tools: {} } });
       case "notifications/initialized":
         return null;
-
       case "tools/list":
         return ok({ tools: TOOLS });
-
       case "tools/call": {
         const toolName = String(params.name ?? "");
         const args = (params.arguments ?? {}) as Record<string, unknown>;
-
         logToolUse(toolName, args);
-
         let text: string;
         switch (toolName) {
           case "read_file": text = toolReadFile(args); break;
@@ -370,16 +277,12 @@ async function handleRPC(body: Record<string, unknown>): Promise<unknown> {
           case "run_command": text = toolRunCommand(args); break;
           case "get_env": text = toolGetEnv(args); break;
           case "system_info": text = toolSystemInfo(); break;
-          default:
-            return err(-32601, `Unknown tool: ${toolName}`);
+          default: return err(-32601, `Unknown tool: ${toolName}`);
         }
-
         return ok({ content: [{ type: "text", text }] });
       }
-
       case "ping":
         return ok({});
-
       default:
         return err(-32601, `Method not found: ${method}`);
     }
@@ -390,7 +293,6 @@ async function handleRPC(body: Record<string, unknown>): Promise<unknown> {
   }
 }
 
-// ─── HTTP server ───────────────────────────────────────────────────────────────
 function json(res: ServerResponse, status: number, data: unknown) {
   const body = JSON.stringify(data);
   res.writeHead(status, {
@@ -423,6 +325,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   if (req.method === "GET" && url.pathname === "/logs") {
     json(res, 200, { lines: recentLogs.slice(-100) });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/console") {
+    json(res, 200, { lines: recentConsole.slice(-100) });
     return;
   }
 
@@ -462,15 +369,16 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`\n🦞  ${APP_NAME} ${VERSION} is running`);
-  console.log(`    Local  : http://127.0.0.1:${PORT}/mcp`);
-  console.log(`    Health : http://127.0.0.1:${PORT}/health`);
+  emitConsole("stdout", `PokeClaw ${VERSION} is running`);
+  emitConsole("stdout", `Local  : http://127.0.0.1:${PORT}/mcp`);
+  emitConsole("stdout", `Health : http://127.0.0.1:${PORT}/health`);
   if (TOKEN) {
-    console.log(`    Auth   : token required  (?token=... or Authorization: Bearer ...)`);
+    emitConsole("stdout", `Auth   : token required  (?token=... or Authorization: Bearer ...)`);
   } else {
-    console.log(`    Auth   : NONE  — set POKECLAW_TOKEN to require a token`);
+    emitConsole("stdout", `Auth   : NONE — set POKECLAW_TOKEN to require a token`);
   }
-  console.log(`    Roots  : ${ROOTS.join(", ")}`);
-  console.log(`    Tools  : ${TOOLS.map((tool) => tool.name).join(", ")}`);
-  console.log(`\n    Waiting for Poke…\n`);
+  emitConsole("stdout", `Roots  : ${ROOTS.join(", ")}`);
+  emitConsole("stdout", `Tools  : ${TOOLS.map((tool) => tool.name).join(", ")}`);
+  pushRecentLog(`[${timestamp()}] INFO server started on 127.0.0.1:${PORT}`);
+  emitConsole("stdout", `Waiting for Poke…`);
 });
