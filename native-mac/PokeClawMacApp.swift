@@ -30,6 +30,17 @@ final class PokeClawConnectionModel: ObservableObject {
         var id: String { "\(stream)-\(line)" }
     }
 
+    struct ToolCallsResponse: Decodable {
+        let calls: [ToolCallEntry]
+    }
+
+    struct ToolCallEntry: Decodable, Identifiable {
+        let timestamp: String
+        let tool: String
+        let preview: String
+        var id: String { "\(timestamp)-\(tool)-\(preview)" }
+    }
+
     struct HealthResponse: Decodable {
         let status: String
         let name: String
@@ -61,6 +72,7 @@ final class PokeClawConnectionModel: ObservableObject {
     @Published var healthEndpoint: String = "http://127.0.0.1:3741/health"
     @Published var logsEndpoint: String = "http://127.0.0.1:3741/logs"
     @Published var consoleEndpoint: String = "http://127.0.0.1:3741/console"
+    @Published var toolCallsEndpoint: String = "http://127.0.0.1:3741/tool-calls"
     @Published var tunnelEndpoint: String = "https://your-tunnel.trycloudflare.com/mcp"
     @Published var serverStatus: String = "Checking server status…"
     @Published var statusMessage: String = "Ready to connect PokeClaw"
@@ -70,7 +82,11 @@ final class PokeClawConnectionModel: ObservableObject {
     @Published var searchQuery: String = "PokeClaw"
     @Published var searchTextOutput: String = "Tap searchtext to see results."
     @Published var systemInfoOutput: String = "Tap systeminfo to inspect the host."
+    @Published var systemCpuUsage: String = "—"
+    @Published var systemMemoryUsage: String = "—"
+    @Published var systemMonitoringUpdated: String = "Never"
     @Published var consoleLines: [ConsoleLine] = [.init(stream: "stdout", line: "Waiting for server console…")]
+    @Published var toolCalls: [ToolCallEntry] = []
     @Published var logLines: [String] = ["Waiting for server logs…"]
     @Published var isConnected: Bool = false
     @Published var isLoadingLogs: Bool = false
@@ -91,11 +107,15 @@ final class PokeClawConnectionModel: ObservableObject {
     func startAutoRefresh() async {
         await refreshServerStatus()
         await refreshConsole()
+        await refreshToolCalls()
+        await refreshSystemMonitoring()
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 15_000_000_000)
             if Task.isCancelled { break }
             await refreshServerStatus()
             await refreshConsole()
+            await refreshToolCalls()
+            await refreshSystemMonitoring()
         }
     }
 
@@ -179,17 +199,43 @@ final class PokeClawConnectionModel: ObservableObject {
     }
 
     func runSystemInfo() async {
+        await refreshSystemMonitoring()
+    }
+
+    func refreshSystemMonitoring() async {
         isLoadingSystemInfo = true
         defer { isLoadingSystemInfo = false }
 
         do {
-            systemInfoOutput = try await callTool(name: "system_info", arguments: [:])
-            lastAction = "Ran systeminfo"
-            statusMessage = "Loaded machine details"
+            let output = try await callTool(name: "system_info", arguments: [:])
+            systemInfoOutput = output
+            systemCpuUsage = metricValue(for: "cpu_percent", in: output).map { "\($0)%" } ?? "—"
+            systemMemoryUsage = metricValue(for: "memory_percent", in: output).map { "\($0)%" } ?? "—"
+            systemMonitoringUpdated = timestamp()
+            lastAction = "Refreshed system monitoring"
+            statusMessage = "Loaded CPU and RAM metrics"
         } catch {
             systemInfoOutput = "systeminfo failed: \(error.localizedDescription)"
+            systemCpuUsage = "—"
+            systemMemoryUsage = "—"
+            systemMonitoringUpdated = timestamp()
             lastAction = "systeminfo failed"
             statusMessage = "Could not load systeminfo"
+        }
+    }
+
+    func refreshToolCalls() async {
+        guard let url = URL(string: toolCallsEndpoint) else {
+            statusMessage = "Invalid tool calls endpoint"
+            return
+        }
+
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let response = try JSONDecoder().decode(ToolCallsResponse.self, from: data)
+            toolCalls = Array(response.calls.suffix(6).reversed())
+        } catch {
+            toolCalls = []
         }
     }
 
@@ -214,6 +260,16 @@ final class PokeClawConnectionModel: ObservableObject {
             lastAction = "searchtext failed"
             statusMessage = "Could not run searchtext"
         }
+    }
+
+    private func metricValue(for key: String, in output: String) -> String? {
+        output
+            .split(separator: "\n")
+            .first(where: { $0.hasPrefix("\(key)=") })
+            .flatMap { line in
+                let pieces = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+                return pieces.count == 2 ? String(pieces[1]).trimmingCharacters(in: .whitespacesAndNewlines) : nil
+            }
     }
 
     func callTool(name: String, arguments: [String: String]) async throws -> String {
