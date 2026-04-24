@@ -15,6 +15,17 @@ By default, Poke lives in the cloud and doesn't have access to files on your com
 
 PokeClaw works on **macOS** (any Mac) and **Linux** (Debian/Ubuntu, Fedora/RHEL, Arch, and compatible distributions).
 
+### Native Mac companion (experimental)
+
+A native SwiftUI scaffold now lives in `native-mac/`. It is intentionally lightweight for now and exists to explore a Mac-first shell that can eventually sit alongside the local MCP server.
+
+Planned next steps:
+- turn the scaffold into a menu bar utility
+- add server status and tunnel visibility
+- wire in controls for start/stop and quick copy actions
+- tighten the visual polish so the Mac app feels like a first-class companion
+
+
 ---
 
 ## Tools available when PokeClaw is active
