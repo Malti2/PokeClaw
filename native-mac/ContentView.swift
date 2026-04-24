@@ -15,13 +15,11 @@ struct ContentView: View {
 
     private var quickActions: [QuickAction] {
         [
-            QuickAction(title: "systeminfo", subtitle: "Inspect host details", symbol: "desktopcomputer", tint: .blue) {
-                model.lastAction = "systeminfo quick action"
-                model.statusMessage = "Ready to inspect host details"
+            QuickAction(title: "systeminfo", subtitle: model.isLoadingSystemInfo ? "Loading details\u2026" : "Inspect host details", symbol: "desktopcomputer", tint: .blue) {
+                Task { await model.runSystemInfo() }
             },
-            QuickAction(title: "searchtext", subtitle: "Search \(model.searchRoot)", symbol: "text.magnifyingglass", tint: .purple) {
-                model.lastAction = "searchtext quick action: \(model.searchQuery)"
-                model.statusMessage = "Ready to search \(model.searchRoot) for \(model.searchQuery)"
+            QuickAction(title: "searchtext", subtitle: model.isRunningSearch ? "Searching\u2026" : "Search \(model.searchRoot)", symbol: "text.magnifyingglass", tint: .purple) {
+                Task { await model.runSearchText() }
             },
             QuickAction(title: model.isRefreshingStatus ? "Refreshing status\u2026" : "Refresh status", subtitle: "Poll the MCP server", symbol: "arrow.clockwise", tint: .green) {
                 Task { await model.refreshServerStatus() }
@@ -53,180 +51,250 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("PokeClaw")
-                        .font(.system(size: 28, weight: .semibold))
-                    Text("Experimental native Mac companion for the local MCP server")
-                        .font(.subheadline)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                header
+                connectionBox
+                quickActionsBox
+                searchTextBox
+                logsBox
+                roadmapBox
+                directionBox
+                footerActions
+            }
+            .padding(20)
+            .frame(minWidth: 780, alignment: .leading)
+        }
+        .background(
+            LinearGradient(
+                colors: [Color(nsColor: .windowBackgroundColor), Color(nsColor: .controlBackgroundColor).opacity(0.5)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+        )
+        .task {
+            await model.startAutoRefresh()
+        }
+    }
+
+    private var header: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("PokeClaw")
+                    .font(.system(size: 28, weight: .semibold))
+                Text("Experimental native Mac companion for the local MCP server")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            statusPill
+        }
+    }
+
+    private var statusPill: some View {
+        VStack(alignment: .trailing, spacing: 6) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(model.isConnected ? .green : .orange)
+                    .frame(width: 10, height: 10)
+                Text(model.serverStatus)
+                    .font(.callout.weight(.medium))
+            }
+            Text(model.lastStatusRefresh == "Never" ? "No refresh yet" : "Last refreshed at \(model.lastStatusRefresh)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var connectionBox: some View {
+        GroupBox("Connection") {
+            VStack(alignment: .leading, spacing: 8) {
+                LabeledContent("Local MCP", value: model.localEndpoint)
+                LabeledContent("Health", value: model.healthEndpoint)
+                LabeledContent("Logs", value: model.logsEndpoint)
+                LabeledContent("Tunnel", value: model.tunnelEndpoint)
+                LabeledContent("Status", value: model.statusMessage)
+                LabeledContent("Last action", value: model.lastAction)
+            }
+            .font(.callout)
+            .textSelection(.enabled)
+        }
+    }
+
+    private var quickActionsBox: some View {
+        GroupBox("Quick Actions") {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(quickActions) { quickAction in
+                    Button(action: quickAction.action) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: quickAction.symbol)
+                                    .foregroundStyle(quickAction.tint)
+                                    .frame(width: 18)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(quickAction.title)
+                                        .fontWeight(.semibold)
+                                    Text(quickAction.subtitle)
+                                        .foregroundStyle(.secondary)
+                                        .font(.caption)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
+                        .padding(12)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .font(.callout)
+        }
+    }
+
+    private var searchTextBox: some View {
+        GroupBox("searchtext results") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Search root")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("~/Projects", text: $model.searchRoot)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Search term")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("PokeClaw", text: $model.searchQuery)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    Button(model.isRunningSearch ? "Searching\u2026" : "Run searchtext") {
+                        Task { await model.runSearchText() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding(.top, 18)
+                }
+
+                HStack(alignment: .top, spacing: 12) {
+                    resultCard(title: "Search output", subtitle: model.statusMessage, body: model.searchTextOutput)
+                    resultCard(title: "systeminfo output", subtitle: model.isLoadingSystemInfo ? "Loading\u2026" : "Latest host details", body: model.systemInfoOutput)
+                }
+            }
+            .font(.callout)
+        }
+    }
+
+    private func resultCard(title: String, subtitle: String, body: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .fontWeight(.semibold)
+                    Text(subtitle)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Circle()
-                    .fill(model.isConnected ? .green : .orange)
-                    .frame(width: 12, height: 12)
-                    .accessibilityLabel(model.isConnected ? "Connected" : "Not connected")
-            }
-
-            GroupBox("Connection") {
-                VStack(alignment: .leading, spacing: 8) {
-                    LabeledContent("Local MCP", value: model.localEndpoint)
-                    LabeledContent("Health", value: model.healthEndpoint)
-                    LabeledContent("Logs", value: model.logsEndpoint)
-                    LabeledContent("Tunnel", value: model.tunnelEndpoint)
-                    LabeledContent("Server status", value: model.serverStatus)
-                    LabeledContent("Last refreshed", value: model.lastStatusRefresh)
-                    LabeledContent("Status", value: model.statusMessage)
-                    LabeledContent("Last action", value: model.lastAction)
-                }
-                .font(.callout)
-                .textSelection(.enabled)
-            }
-
-            GroupBox("Quick Actions") {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    ForEach(quickActions) { quickAction in
-                        Button(action: quickAction.action) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(alignment: .top, spacing: 10) {
-                                    Image(systemName: quickAction.symbol)
-                                        .foregroundStyle(quickAction.tint)
-                                        .frame(width: 18)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(quickAction.title)
-                                            .fontWeight(.semibold)
-                                        Text(quickAction.subtitle)
-                                            .foregroundStyle(.secondary)
-                                            .font(.caption)
-                                    }
-                                    Spacer(minLength: 0)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
-                            .padding(12)
-                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .font(.callout)
-            }
-
-            GroupBox("Tool launcher") {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Search root")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            TextField("~/Projects", text: $model.searchRoot)
-                                .textFieldStyle(.roundedBorder)
-                        }
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Search query")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            TextField("PokeClaw", text: $model.searchQuery)
-                                .textFieldStyle(.roundedBorder)
-                        }
-                    }
-
-                    HStack(spacing: 10) {
-                        Button("Preview systeminfo") {
-                            model.lastAction = "systeminfo preview ready"
-                            model.statusMessage = "Native UI can surface machine details next"
-                        }
-                        Button("Preview searchtext") {
-                            model.lastAction = "searchtext query: \(model.searchQuery)"
-                            model.statusMessage = "Searching \(model.searchRoot) for \(model.searchQuery)"
-                        }
-                        .buttonStyle(.bordered)
-                        Button("Copy MCP URL") {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(model.localEndpoint, forType: .string)
-                            model.lastAction = "Copied MCP endpoint"
-                            model.statusMessage = model.localEndpoint
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                }
-                .font(.callout)
-            }
-
-            GroupBox("MCP logs") {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("Recent activity")
-                            .font(.callout.weight(.medium))
-                        Spacer()
-                        Button("Reload") {
-                            Task { await model.refreshLogs() }
-                        }
-                        .buttonStyle(.bordered)
-                    }
-
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 8) {
-                            ForEach(Array(model.logLines.enumerated()), id: \.offset) { _, line in
-                                Text(line)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(.primary)
-                                    .textSelection(.enabled)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .frame(minHeight: 140)
-                }
-            }
-
-            GroupBox("Polish roadmap") {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(model.notes, id: \.self) { note in
-                        Label(note, systemImage: "checkmark.seal")
-                    }
-                }
-                .font(.callout)
-            }
-
-            GroupBox("Native app direction") {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(toolTiles, id: \.title) { tile in
-                        Label {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(tile.title)
-                                    .fontWeight(.medium)
-                                Text(tile.subtitle)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } icon: {
-                            Image(systemName: tile.symbol)
-                        }
-                    }
-                }
-                .font(.callout)
-            }
-
-            HStack {
-                Button(model.isConnected ? "Disconnect" : "Mark Connected") {
-                    model.isConnected.toggle()
-                    model.statusMessage = model.isConnected ? "Ready for Poke requests" : "Waiting for a local server"
-                    model.lastAction = model.isConnected ? "Connected" : "Disconnected"
-                }
-                Button(model.isRefreshingStatus ? "Refreshing\u2026" : "Refresh status") {
-                    Task { await model.refreshServerStatus() }
+                Button("Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(body, forType: .string)
                 }
                 .buttonStyle(.bordered)
             }
 
-            Spacer(minLength: 0)
+            ScrollView {
+                Text(body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+            }
+            .frame(minHeight: 160)
         }
-        .padding(20)
-        .frame(minWidth: 760, minHeight: 700)
-        .task {
-            await model.startAutoRefresh()
+        .padding(12)
+        .frame(maxWidth: .infinity)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var logsBox: some View {
+        GroupBox("MCP logs") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Recent activity")
+                        .font(.callout.weight(.medium))
+                    Spacer()
+                    Button("Reload") {
+                        Task { await model.refreshLogs() }
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(Array(model.logLines.enumerated()), id: \.offset) { _, line in
+                            Text(line)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.primary)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .frame(minHeight: 140)
+            }
+        }
+    }
+
+    private var roadmapBox: some View {
+        GroupBox("Polish roadmap") {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(model.notes, id: \.self) { note in
+                    Label(note, systemImage: "checkmark.seal")
+                }
+            }
+            .font(.callout)
+        }
+    }
+
+    private var directionBox: some View {
+        GroupBox("Native app direction") {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(toolTiles, id: \.title) { tile in
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tile.title)
+                                .fontWeight(.medium)
+                            Text(tile.subtitle)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: tile.symbol)
+                    }
+                }
+            }
+            .font(.callout)
+        }
+    }
+
+    private var footerActions: some View {
+        HStack {
+            Button(model.isConnected ? "Disconnect" : "Mark Connected") {
+                model.isConnected.toggle()
+                model.statusMessage = model.isConnected ? "Ready for Poke requests" : "Waiting for a local server"
+                model.lastAction = model.isConnected ? "Connected" : "Disconnected"
+            }
+            Button(model.isRefreshingStatus ? "Refreshing\u2026" : "Refresh status") {
+                Task { await model.refreshServerStatus() }
+            }
+            .buttonStyle(.bordered)
+            Spacer()
         }
     }
 }
