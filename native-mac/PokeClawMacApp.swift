@@ -1,6 +1,8 @@
 import AppKit
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
+import UserNotifications
 
 @main
 struct PokeClawMacApp: App {
@@ -61,11 +63,13 @@ struct PokeClawSettingsView: View {
     @AppStorage("pokeclaw.accentColor") private var accentColorName = "blue"
     @AppStorage("pokeclaw.appearanceMode") private var appearanceMode = "dark"
     @AppStorage("pokeclaw.autoStartOnLogin") private var autoStartOnLogin = false
+    @AppStorage("pokeclaw.notificationsEnabled") private var notificationsEnabled = false
     @State private var selectedPane: SettingsPane = .connection
 
     private enum SettingsPane: String, CaseIterable, Identifiable {
         case appearance = "Appearance"
         case connection = "Connection"
+        case notifications = "Notifications"
         case about = "About"
 
         var id: String { rawValue }
@@ -110,6 +114,8 @@ struct PokeClawSettingsView: View {
                     appearancePane
                 case .connection:
                     connectionPane
+                case .notifications:
+                    notificationsPane
                 case .about:
                     aboutPane
                 }
@@ -117,9 +123,13 @@ struct PokeClawSettingsView: View {
         }
         .task {
             await model.syncLaunchAgent(enabled: autoStartOnLogin)
+            await model.syncNotificationSettings(enabled: notificationsEnabled)
         }
         .onChange(of: autoStartOnLogin) { enabled in
             Task { await model.updateLaunchAgent(enabled: enabled) }
+        }
+        .onChange(of: notificationsEnabled) { enabled in
+            Task { await model.updateNotificationSettings(enabled: enabled) }
         }
         .padding(20)
         .frame(width: 460)
@@ -208,6 +218,40 @@ struct PokeClawSettingsView: View {
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var notificationsPane: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Notifications")
+                .font(.headline)
+            Text("Send local macOS notifications when the server goes offline or a command fails.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Toggle(isOn: $notificationsEnabled) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Enable notifications")
+                    Text("Requires notification permission from macOS.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+
+            HStack {
+                Button("Request Permission") {
+                    Task { await model.requestNotificationPermission() }
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Text(model.notificationStatusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -356,6 +400,11 @@ struct PokeClawMenuBarPopoverView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Spacer()
+                        Button("Export Logs") {
+                            Task { await model.exportConsoleLogs() }
+                        }
+                        .buttonStyle(.bordered)
+
                         Button("Refresh logs") {
                             Task { await model.refreshLogs() }
                         }
@@ -514,6 +563,8 @@ final class PokeClawConnectionModel: ObservableObject {
     @Published var isRunningSearch: Bool = false
     @Published var isLoadingSystemInfo: Bool = false
     @Published var isLoadingConsole: Bool = false
+    @Published var notificationStatusText: String = "Notifications idle"
+    var notificationsEnabled: Bool = false
     @Published var notes: [String] = [
         "Keep the local MCP server running",
         "Show the health endpoint alongside the MCP URL",
@@ -539,6 +590,58 @@ final class PokeClawConnectionModel: ObservableObject {
         }
     }
 
+    func syncNotificationSettings(enabled: Bool) async {
+        notificationsEnabled = enabled
+        if enabled {
+            await requestNotificationPermission()
+        } else {
+            notificationStatusText = "Notifications disabled"
+        }
+    }
+
+    func updateNotificationSettings(enabled: Bool) async {
+        notificationsEnabled = enabled
+        if enabled {
+            await requestNotificationPermission()
+        } else {
+            notificationStatusText = "Notifications disabled"
+        }
+    }
+
+    func requestNotificationPermission() async {
+        let center = UNUserNotificationCenter.current()
+        do {
+            let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            notificationStatusText = granted ? "Notifications enabled" : "Notifications blocked"
+        } catch {
+            notificationStatusText = "Notification permission failed"
+        }
+    }
+
+    private func sendLocalNotification(title: String, body: String) async {
+        guard notificationsEnabled else { return }
+
+        let center = UNUserNotificationCenter.current()
+        let authorizationStatus = await notificationAuthorizationStatus()
+        guard authorizationStatus == .authorized || authorizationStatus == .provisional else {
+            notificationStatusText = "Notifications need permission"
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        do {
+            try await center.add(request)
+            notificationStatusText = "Notification sent"
+        } catch {
+            notificationStatusText = "Notification failed"
+        }
+    }
+
     func refreshServerStatus() async {
         guard let url = URL(string: healthEndpoint) else {
             serverStatus = "Invalid health endpoint"
@@ -546,6 +649,8 @@ final class PokeClawConnectionModel: ObservableObject {
             lastAction = "Status refresh failed"
             return
         }
+
+        let wasConnected = isConnected
 
         isRefreshingStatus = true
         defer { isRefreshingStatus = false }
@@ -571,6 +676,9 @@ final class PokeClawConnectionModel: ObservableObject {
             statusMessage = "Could not reach the local server"
             lastAction = "Status refresh failed"
             lastStatusRefresh = timestamp()
+            if wasConnected {
+                await sendLocalNotification(title: "PokeClaw server offline", body: "The local server stopped responding.")
+            }
         }
     }
 
@@ -687,6 +795,7 @@ final class PokeClawConnectionModel: ObservableObject {
             recordCustomCommandHistory(command)
             lastAction = "Custom command failed"
             statusMessage = "Could not run custom command"
+            await sendLocalNotification(title: "PokeClaw command failed", body: command)
         }
     }
 
@@ -710,6 +819,39 @@ final class PokeClawConnectionModel: ObservableObject {
             searchTextOutput = "searchtext failed: \(error.localizedDescription)"
             lastAction = "searchtext failed"
             statusMessage = "Could not run searchtext"
+        }
+    }
+
+    private func notificationAuthorizationStatus() async -> UNAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                continuation.resume(returning: settings.authorizationStatus)
+            }
+        }
+    }
+
+    func exportConsoleLogs() async {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.plainText]
+        panel.nameFieldStringValue = "pokeclaw-console-logs.txt"
+        panel.title = "Export Console Logs"
+        panel.message = "Choose where to save the console logs."
+
+        let response = panel.runModal()
+        guard response == .OK, let url = panel.url else { return }
+
+        let logText = consoleLines.map { line in
+            if line.stream.isEmpty { return line.line }
+            return "[\(line.stream)] \(line.line)"
+        }.joined(separator: "\n")
+
+        do {
+            try logText.write(to: url, atomically: true, encoding: .utf8)
+            statusMessage = "Exported console logs"
+            lastAction = "Exported console logs"
+        } catch {
+            statusMessage = "Failed to export console logs"
+            lastAction = "Console log export failed"
         }
     }
 
