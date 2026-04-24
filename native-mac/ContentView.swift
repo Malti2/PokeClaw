@@ -4,7 +4,7 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var model: PokeClawConnectionModel
     @State private var activitySearchText: String = ""
-    @AppStorage("pokeclaw.favoriteCommands") private var favoriteCommandsData = "[]"
+    @AppStorage("pokeclaw.favoriteCommands()") private var favoriteCommandsData = "[]"
 
     private struct QuickAction: Identifiable {
         let id = UUID()
@@ -90,9 +90,12 @@ struct ContentView: View {
         [GridItem(.adaptive(minimum: 220), spacing: 12)]
     }
 
-    private var favoriteCommands: [FavoriteCommand] {
-        get { Self.decodeFavorites(favoriteCommandsData) }
-        nonmutating set { favoriteCommandsData = Self.encodeFavorites(newValue) }
+    private func favoriteCommands() -> [FavoriteCommand] {
+        Self.decodeFavorites(favoriteCommandsData)
+    }
+
+    private func saveFavoriteCommands(_ favorites: [FavoriteCommand]) {
+        favoriteCommandsData = Self.encodeFavorites(favorites)
     }
 
     private var filteredLogLines: [String] {
@@ -356,18 +359,18 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Text("\(favoriteCommands.count) saved")
+                    Text("\(favoriteCommands().count) saved")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                if favoriteCommands.isEmpty {
+                if favoriteCommands().isEmpty {
                     Text("Pin the current command from the custom command box to build your shortcuts list.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 } else {
                     LazyVStack(alignment: .leading, spacing: 10) {
-                        ForEach(favoriteCommands) { favorite in
+                        ForEach(favoriteCommands()) { favorite in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(alignment: .top) {
                                     VStack(alignment: .leading, spacing: 2) {
@@ -730,16 +733,16 @@ struct ContentView: View {
     private func pinCurrentCommand() {
         let command = model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty else { return }
-        var updated = favoriteCommands
+        var updated = favoriteCommands()()
         guard !updated.contains(where: { $0.command == command }) else { return }
         updated.insert(FavoriteCommand(id: UUID(), title: favoriteTitle(for: command), command: command), at: 0)
-        favoriteCommands = updated
+        saveFavoriteCommands(updated)
         model.statusMessage = "Pinned command to Favorites"
         model.lastAction = "Pinned favorite command"
     }
 
     private func removeFavorite(_ favorite: FavoriteCommand) {
-        favoriteCommands = favoriteCommands.filter { $0.id != favorite.id }
+        favoriteCommands() = favoriteCommands().filter { $0.id != favorite.id }
         model.lastAction = "Removed favorite command"
     }
 
