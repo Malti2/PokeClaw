@@ -4,9 +4,10 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var model: PokeClawConnectionModel
     @State private var activitySearchText: String = ""
-    @State private var commandToast: String? = nil
+    @State private var commandToast: PokeClawConnectionModel.CustomCommandBanner? = nil
     @FocusState private var customCommandFocused: Bool
     @AppStorage("pokeclaw.favoriteCommands") private var favoriteCommandsData = "[]"
+    @AppStorage("pokeclaw.commandHistory") private var commandHistoryData = "[]"
 
     private struct QuickAction: Identifiable {
         let id = UUID()
@@ -122,6 +123,7 @@ struct ContentView: View {
                 quickActionsBox
                 searchTextBox
                 customCommandBox
+                commandHistoryBox
                 favoritesBox
                 systemMonitoringBox
                 activitySearchBar
@@ -365,6 +367,61 @@ struct ContentView: View {
                 Text("Runs locally on this Mac through /bin/zsh -lc.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+            .font(.callout)
+        }
+    }
+
+    private var commandHistoryBox: some View {
+        GroupBox("Command History") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Recent custom commands")
+                            .font(.callout.weight(.medium))
+                        Text("Quickly recall commands you used before.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text("\(commandHistory().count) saved")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if commandHistory().isEmpty {
+                    Text("Your executed custom commands will appear here for quick reuse.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(commandHistory(), id: \.self) { command in
+                            HStack(alignment: .top, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(command)
+                                        .font(.system(.callout, design: .monospaced))
+                                        .textSelection(.enabled)
+                                        .lineLimit(2)
+                                    Text("Tap Recall to reuse or Run to execute immediately")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button("Recall") {
+                                    recallHistoryCommand(command)
+                                }
+                                .buttonStyle(.bordered)
+                                Button("Run") {
+                                    runHistoryCommand(command)
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                            .padding(12)
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.08), lineWidth: 1))
+                        }
+                    }
+                }
             }
             .font(.callout)
         }
@@ -779,25 +836,55 @@ struct ContentView: View {
         return singleLine.count > 36 ? String(singleLine.prefix(36)) + "…" : singleLine
     }
 
-    private func toastView(_ message: String) -> some View {
+    private func commandHistory() -> [String] {
+        Self.decodeStringArray(commandHistoryData)
+    }
+
+    private func saveCommandHistory(_ history: [String]) {
+        commandHistoryData = Self.encodeStringArray(history)
+    }
+
+    private func recallHistoryCommand(_ command: String) {
+        model.customCommand = command
+        customCommandFocused = true
+        model.lastAction = "Recalled command from history"
+    }
+
+    private func runHistoryCommand(_ command: String) {
+        model.customCommand = command
+        Task { await model.runCustomCommand() }
+    }
+
+    private func toastView(_ banner: PokeClawConnectionModel.CustomCommandBanner) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-            Text(message)
+            Image(systemName: banner.style.symbol)
+                .foregroundStyle(banner.style.tint)
+            Text(banner.message)
                 .font(.callout.weight(.medium))
+                .foregroundStyle(.primary)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .frame(maxWidth: 280)
-        .background(.regularMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.12), lineWidth: 1))
+        .frame(maxWidth: 300)
+        .background(banner.style.background, in: Capsule())
+        .overlay(Capsule().strokeBorder(banner.style.tint.opacity(0.18), lineWidth: 1))
         .shadow(radius: 10, y: 4)
     }
 
     private static func decodeFavorites(_ string: String) -> [FavoriteCommand] {
         guard let data = string.data(using: .utf8), !string.isEmpty else { return [] }
         return (try? JSONDecoder().decode([FavoriteCommand].self, from: data)) ?? []
+    }
+
+    private static func decodeStringArray(_ string: String) -> [String] {
+        guard let data = string.data(using: .utf8), !string.isEmpty else { return [] }
+        return (try? JSONDecoder().decode([String].self, from: data)) ?? []
+    }
+
+    private static func encodeStringArray(_ values: [String]) -> String {
+        guard let data = try? JSONEncoder().encode(values), let string = String(data: data, encoding: .utf8) else { return "[]" }
+        return string
     }
 
     private static func encodeFavorites(_ favorites: [FavoriteCommand]) -> String {
