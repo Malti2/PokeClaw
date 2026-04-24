@@ -15,17 +15,20 @@ struct ContentView: View {
 
     private var quickActions: [QuickAction] {
         [
-            QuickAction(title: "systeminfo", subtitle: model.isLoadingSystemInfo ? "Loading details\u2026" : "Inspect host details", symbol: "desktopcomputer", tint: .blue) {
+            QuickAction(title: "systeminfo", subtitle: model.isLoadingSystemInfo ? "Loading details…" : "Inspect host details", symbol: "desktopcomputer", tint: .blue) {
                 Task { await model.runSystemInfo() }
             },
-            QuickAction(title: "searchtext", subtitle: model.isRunningSearch ? "Searching\u2026" : "Search \(model.searchRoot)", symbol: "text.magnifyingglass", tint: .purple) {
+            QuickAction(title: "searchtext", subtitle: model.isRunningSearch ? "Searching…" : "Search \(model.searchRoot)", symbol: "text.magnifyingglass", tint: .purple) {
                 Task { await model.runSearchText() }
             },
-            QuickAction(title: model.isRefreshingStatus ? "Refreshing status\u2026" : "Refresh status", subtitle: "Poll the MCP server", symbol: "arrow.clockwise", tint: .green) {
+            QuickAction(title: model.isRefreshingStatus ? "Refreshing status…" : "Refresh status", subtitle: "Poll the MCP server", symbol: "arrow.clockwise", tint: .green) {
                 Task { await model.refreshServerStatus() }
             },
-            QuickAction(title: model.isLoadingLogs ? "Refreshing logs\u2026" : "Refresh logs", subtitle: "Load recent activity", symbol: "list.bullet.rectangle", tint: .orange) {
+            QuickAction(title: model.isLoadingLogs ? "Refreshing logs…" : "Refresh logs", subtitle: "Load recent activity", symbol: "list.bullet.rectangle", tint: .orange) {
                 Task { await model.refreshLogs() }
+            },
+            QuickAction(title: model.isLoadingConsole ? "Refreshing console…" : "Refresh console", subtitle: "Load stdout and stderr", symbol: "terminal", tint: .red) {
+                Task { await model.refreshConsole() }
             },
             QuickAction(title: "Copy MCP URL", subtitle: model.localEndpoint, symbol: "doc.on.doc", tint: .teal) {
                 NSPasteboard.general.clearContents()
@@ -46,8 +49,12 @@ struct ContentView: View {
         [
             ("searchtext", "Preview a file-content search", "text.magnifyingglass"),
             ("systeminfo", "Inspect host details", "desktopcomputer"),
-            ("read/write/list", "Core filesystem tools", "folder")
+            ("console", "Watch stdout / stderr", "terminal")
         ]
+    }
+
+    private var quickActionColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 220), spacing: 12)]
     }
 
     var body: some View {
@@ -57,13 +64,14 @@ struct ContentView: View {
                 connectionBox
                 quickActionsBox
                 searchTextBox
+                consoleBox
                 logsBox
                 roadmapBox
                 directionBox
                 footerActions
             }
             .padding(20)
-            .frame(minWidth: 780, alignment: .leading)
+            .frame(minWidth: 820, alignment: .leading)
         }
         .background(
             LinearGradient(
@@ -116,6 +124,7 @@ struct ContentView: View {
                 LabeledContent("Local MCP", value: model.localEndpoint)
                 LabeledContent("Health", value: model.healthEndpoint)
                 LabeledContent("Logs", value: model.logsEndpoint)
+                LabeledContent("Console", value: model.consoleEndpoint)
                 LabeledContent("Tunnel", value: model.tunnelEndpoint)
                 LabeledContent("Status", value: model.statusMessage)
                 LabeledContent("Last action", value: model.lastAction)
@@ -127,14 +136,18 @@ struct ContentView: View {
 
     private var quickActionsBox: some View {
         GroupBox("Quick Actions") {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: quickActionColumns, spacing: 12) {
                 ForEach(quickActions) { quickAction in
                     Button(action: quickAction.action) {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: quickAction.symbol)
-                                    .foregroundStyle(quickAction.tint)
-                                    .frame(width: 18)
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(quickAction.tint.opacity(0.12))
+                                        .frame(width: 34, height: 34)
+                                    Image(systemName: quickAction.symbol)
+                                        .foregroundStyle(quickAction.tint)
+                                }
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(quickAction.title)
                                         .fontWeight(.semibold)
@@ -145,9 +158,13 @@ struct ContentView: View {
                                 Spacer(minLength: 0)
                             }
                         }
-                        .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
+                        .frame(maxWidth: .infinity, minHeight: 74, alignment: .leading)
                         .padding(12)
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(.white.opacity(0.08), lineWidth: 1)
+                        )
                     }
                     .buttonStyle(.plain)
                 }
@@ -174,7 +191,7 @@ struct ContentView: View {
                         TextField("PokeClaw", text: $model.searchQuery)
                             .textFieldStyle(.roundedBorder)
                     }
-                    Button(model.isRunningSearch ? "Searching\u2026" : "Run searchtext") {
+                    Button(model.isRunningSearch ? "Searching…" : "Run searchtext") {
                         Task { await model.runSearchText() }
                     }
                     .buttonStyle(.borderedProminent)
@@ -184,10 +201,53 @@ struct ContentView: View {
 
                 HStack(alignment: .top, spacing: 12) {
                     resultCard(title: "Search output", subtitle: model.statusMessage, body: model.searchTextOutput)
-                    resultCard(title: "systeminfo output", subtitle: model.isLoadingSystemInfo ? "Loading\u2026" : "Latest host details", body: model.systemInfoOutput)
+                    resultCard(title: "systeminfo output", subtitle: model.isLoadingSystemInfo ? "Loading…" : "Latest host details", body: model.systemInfoOutput)
                 }
             }
             .font(.callout)
+        }
+    }
+
+    private var consoleBox: some View {
+        GroupBox("Console") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("stdout / stderr")
+                            .font(.callout.weight(.medium))
+                        Text("Live output from the Bun server")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button(model.isLoadingConsole ? "Refreshing…" : "Reload console") {
+                        Task { await model.refreshConsole() }
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 6) {
+                        ForEach(model.consoleLines) { line in
+                            HStack(alignment: .top, spacing: 8) {
+                                Text(line.stream.uppercased())
+                                    .font(.system(.caption2, design: .monospaced))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(line.stream == "stderr" ? Color.red.opacity(0.15) : Color.blue.opacity(0.12), in: Capsule())
+                                Text(line.line)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+                }
+                .frame(minHeight: 180)
+            }
         }
     }
 
@@ -290,7 +350,7 @@ struct ContentView: View {
                 model.statusMessage = model.isConnected ? "Ready for Poke requests" : "Waiting for a local server"
                 model.lastAction = model.isConnected ? "Connected" : "Disconnected"
             }
-            Button(model.isRefreshingStatus ? "Refreshing\u2026" : "Refresh status") {
+            Button(model.isRefreshingStatus ? "Refreshing…" : "Refresh status") {
                 Task { await model.refreshServerStatus() }
             }
             .buttonStyle(.bordered)
