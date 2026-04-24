@@ -49,7 +49,8 @@ struct ContentView: View {
         [
             ("searchtext", "Preview a file-content search", "text.magnifyingglass"),
             ("systeminfo", "Inspect host details", "desktopcomputer"),
-            ("console", "Watch stdout / stderr", "terminal")
+            ("console", "Watch stdout / stderr", "terminal"),
+            ("system monitoring", "Track CPU and RAM", "speedometer")
         ]
     }
 
@@ -64,7 +65,9 @@ struct ContentView: View {
                 connectionBox
                 quickActionsBox
                 searchTextBox
+                systemMonitoringBox
                 consoleBox
+                toolCallsBox
                 logsBox
                 roadmapBox
                 directionBox
@@ -125,6 +128,7 @@ struct ContentView: View {
                 LabeledContent("Health", value: model.healthEndpoint)
                 LabeledContent("Logs", value: model.logsEndpoint)
                 LabeledContent("Console", value: model.consoleEndpoint)
+                LabeledContent("Tool Calls", value: model.toolCallsEndpoint)
                 LabeledContent("Tunnel", value: model.tunnelEndpoint)
                 LabeledContent("Status", value: model.statusMessage)
                 LabeledContent("Last action", value: model.lastAction)
@@ -208,6 +212,38 @@ struct ContentView: View {
         }
     }
 
+    private var systemMonitoringBox: some View {
+        GroupBox("System Monitoring") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    metricCard(title: "CPU", value: model.systemCpuUsage, subtitle: "Updated (model.systemMonitoringUpdated)", tint: .blue)
+                    metricCard(title: "RAM", value: model.systemMemoryUsage, subtitle: "Updated (model.systemMonitoringUpdated)", tint: .purple)
+                }
+                Text(model.systemInfoOutput)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .lineLimit(4)
+            }
+        }
+    }
+
+    private func metricCard(title: String, value: String, subtitle: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(size: 28, weight: .semibold, design: .rounded))
+            Text(subtitle)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
+        .padding(12)
+        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
     private var consoleBox: some View {
         GroupBox("Console") {
             VStack(alignment: .leading, spacing: 10) {
@@ -247,6 +283,48 @@ struct ContentView: View {
                     .padding(.vertical, 4)
                 }
                 .frame(minHeight: 180)
+            }
+        }
+    }
+
+    private var toolCallsBox: some View {
+        GroupBox("Recent MCP Tool Calls") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Latest calls")
+                        .font(.callout.weight(.medium))
+                    Spacer()
+                    Button("Refresh") {
+                        Task { await model.refreshToolCalls() }
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                if model.toolCalls.isEmpty {
+                    Text("No tool calls yet.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(model.toolCalls) { call in
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack {
+                                    Text(call.timestamp)
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text(call.tool)
+                                        .font(.caption.weight(.semibold))
+                                }
+                                Text(call.preview)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
             }
         }
     }
