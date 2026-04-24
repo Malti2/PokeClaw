@@ -39,6 +39,15 @@ struct PokeClawMacApp: App {
 struct PokeClawSettingsView: View {
     @ObservedObject var model: PokeClawConnectionModel
     @AppStorage("pokeclaw.accentColor") private var accentColorName = "blue"
+    @State private var selectedPane: SettingsPane = .connection
+
+    private enum SettingsPane: String, CaseIterable, Identifiable {
+        case appearance = "Appearance"
+        case connection = "Connection"
+        case about = "About"
+
+        var id: String { rawValue }
+    }
 
     private let accentOptions: [(name: String, label: String, color: Color)] = [
         ("blue", "Blue", .blue),
@@ -53,27 +62,73 @@ struct PokeClawSettingsView: View {
         ("indigo", "Indigo", .indigo)
     ]
 
-    var body: some View {
-        Form {
-            Section("Appearance") {
-                Picker("Accent color", selection: $accentColorName) {
-                    ForEach(accentOptions, id: \.name) { option in
-                        HStack(spacing: 10) {
-                            Circle()
-                                .fill(option.color)
-                                .frame(width: 12, height: 12)
-                            Text(option.label)
-                        }
-                        .tag(option.name)
-                    }
-                }
-                .pickerStyle(.menu)
-                Text("Changes apply immediately to the app tint and controls.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+    private var appVersion: String {
+        let bundle = Bundle.main
+        let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+        return "\(version) (\(build))"
+    }
 
-            Section("Connection") {
+    private var githubURL: URL {
+        URL(string: "https://github.com/Malti2/PokeClaw")!
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Picker("Settings", selection: $selectedPane) {
+                ForEach(SettingsPane.allCases) { pane in
+                    Text(pane.rawValue).tag(pane)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            GroupBox {
+                switch selectedPane {
+                case .appearance:
+                    appearancePane
+                case .connection:
+                    connectionPane
+                case .about:
+                    aboutPane
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+    }
+
+    private var appearancePane: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Accent color")
+                .font(.headline)
+            Text("Changes apply immediately to the app tint and controls.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Picker("Accent color", selection: $accentColorName) {
+                ForEach(accentOptions, id: \.name) { option in
+                    HStack(spacing: 10) {
+                        Circle()
+                            .fill(option.color)
+                            .frame(width: 12, height: 12)
+                        Text(option.label)
+                    }
+                    .tag(option.name)
+                }
+            }
+            .pickerStyle(.menu)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var connectionPane: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Server connection")
+                .font(.headline)
+            Text("Edit host and port to point PokeClaw at a different MCP server.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 12) {
                 TextField("Host", text: $model.serverHost)
                 Stepper(value: $model.serverPort, in: 1...65535, step: 1) {
                     HStack {
@@ -85,20 +140,41 @@ struct PokeClawSettingsView: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Server URL")
+                    Text("Current endpoint")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text(model.localEndpoint)
                         .font(.system(.caption, design: .monospaced))
                         .textSelection(.enabled)
                 }
-                Text("Used by the MCP connection, logs, console, and tool call views.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
-        .padding(20)
-        .frame(width: 420)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var aboutPane: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("About PokeClaw")
+                .font(.headline)
+            Text("A native macOS companion for Poke and the local MCP server.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 10) {
+                LabeledContent("Version", value: appVersion)
+                LabeledContent("GitHub", value: githubURL.absoluteString)
+                    .textSelection(.enabled)
+                LabeledContent("Credits", value: "SwiftUI, AppKit, Poke, and the local MCP tooling")
+            }
+            .font(.callout)
+            .textSelection(.enabled)
+
+            Link(destination: githubURL) {
+                Label("Open GitHub repository", systemImage: "arrow.up.right.square")
+            }
+            .buttonStyle(.bordered)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
