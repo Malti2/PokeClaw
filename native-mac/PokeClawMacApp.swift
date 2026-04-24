@@ -232,6 +232,32 @@ final class PokeClawConnectionModel: ObservableObject {
         let text: String?
     }
 
+    struct CustomCommandBanner: Equatable {
+        enum Style: String, Equatable {
+            case success
+            case failure
+
+            var tint: Color {
+                switch self {
+                case .success: return .green
+                case .failure: return .red
+                }
+            }
+
+            var background: Color { tint.opacity(0.16) }
+
+            var symbol: String {
+                switch self {
+                case .success: return "checkmark.circle.fill"
+                case .failure: return "xmark.octagon.fill"
+                }
+            }
+        }
+
+        let message: String
+        let style: Style
+    }
+
     @Published var serverHost: String = UserDefaults.standard.string(forKey: "pokeclaw.serverHost") ?? "127.0.0.1" {
         didSet {
             UserDefaults.standard.set(serverHost, forKey: "pokeclaw.serverHost")
@@ -255,7 +281,7 @@ final class PokeClawConnectionModel: ObservableObject {
     @Published var tunnelEndpoint: String = "https://your-tunnel.trycloudflare.com/mcp"
     @Published var customCommand: String = ""
     @Published var customCommandOutput: String = "Enter a command to run on this Mac."
-    @Published var customCommandBanner: String? = nil
+    @Published var customCommandBanner: CustomCommandBanner? = nil
     @Published var isRunningCustomCommand: Bool = false
     @Published var serverStatus: String = "Checking server status…"
     @Published var statusMessage: String = "Ready to connect PokeClaw"
@@ -436,12 +462,14 @@ final class PokeClawConnectionModel: ObservableObject {
         do {
             let output = try await executeShellCommand(command)
             customCommandOutput = output.isEmpty ? "(no output)" : output
-            customCommandBanner = "Custom command finished"
+            customCommandBanner = .init(message: "Custom command finished", style: .success)
+            recordCustomCommandHistory(command)
             lastAction = "Ran custom command"
             statusMessage = "Custom command finished"
         } catch {
             customCommandOutput = "Command failed: \(error.localizedDescription)"
-            customCommandBanner = "Custom command failed"
+            customCommandBanner = .init(message: "Custom command failed", style: .failure)
+            recordCustomCommandHistory(command)
             lastAction = "Custom command failed"
             statusMessage = "Could not run custom command"
         }
