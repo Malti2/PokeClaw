@@ -4,6 +4,7 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var model: PokeClawConnectionModel
     @State private var activitySearchText: String = ""
+    @State private var customCommandText: String = ""
 
     private struct QuickAction: Identifiable {
         let id = UUID()
@@ -80,6 +81,7 @@ struct ContentView: View {
                 connectionBox
                 quickActionsBox
                 searchTextBox
+                customCommandBox
                 systemMonitoringBox
                 activitySearchBar
                 consoleBox
@@ -228,6 +230,60 @@ struct ContentView: View {
         }
     }
 
+
+    private var customCommandBox: some View {
+        GroupBox("Run Custom Command") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Command")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("e.g. ls -la /Applications", text: $model.customCommand)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit {
+                                Task { await model.runCustomCommand() }
+                            }
+                    }
+                    Button(model.isRunningCustomCommand ? "Running…" : "Run") {
+                        Task { await model.runCustomCommand() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding(.top, 18)
+                    .disabled(model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Output")
+                            .font(.callout.weight(.medium))
+                        Spacer()
+                        Button("Copy") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(model.customCommandOutput, forType: .string)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    ScrollView {
+                        Text(model.customCommandOutput)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(.primary)
+                            .textSelection(.enabled)
+                    }
+                    .frame(minHeight: 110)
+                    .padding(10)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                Text("Runs locally on this Mac through /bin/zsh -lc.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .font(.callout)
+        }
+    }
     private var systemMonitoringBox: some View {
         GroupBox("System Monitoring") {
             VStack(alignment: .leading, spacing: 14) {
