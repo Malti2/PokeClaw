@@ -504,8 +504,8 @@ struct ContentView: View {
                 }
 
                 HStack(spacing: 12) {
-                    metricCard(title: "CPU", value: model.systemCpuUsage, fraction: metricFraction(model.systemCpuUsage), subtitle: "Current processor load", tint: .blue)
-                    metricCard(title: "RAM", value: model.systemMemoryUsage, fraction: metricFraction(model.systemMemoryUsage), subtitle: "Memory pressure snapshot", tint: .purple)
+                    metricCard(title: "CPU", value: model.systemCpuUsage, fraction: metricFraction(model.systemCpuUsage), history: model.systemCpuHistory, subtitle: "Current processor load", tint: .blue)
+                    metricCard(title: "RAM", value: model.systemMemoryUsage, fraction: metricFraction(model.systemMemoryUsage), history: model.systemMemoryHistory, subtitle: "Memory pressure snapshot", tint: .purple)
                 }
 
                 Text(model.systemInfoOutput)
@@ -524,7 +524,7 @@ struct ContentView: View {
         return max(0, min(percent / 100, 1))
     }
 
-    private func metricCard(title: String, value: String, fraction: Double?, subtitle: String, tint: Color) -> some View {
+    private func metricCard(title: String, value: String, fraction: Double?, history: [Double], subtitle: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
@@ -536,6 +536,9 @@ struct ContentView: View {
                     .foregroundStyle(tint)
             }
 
+            sparkline(values: history, tint: tint)
+                .frame(height: 28)
+
             ProgressView(value: fraction ?? 0)
                 .tint(tint)
                 .scaleEffect(y: 1.15, anchor: .center)
@@ -544,7 +547,7 @@ struct ContentView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 140, alignment: .leading)
         .padding(14)
         .background(
             LinearGradient(
@@ -559,6 +562,52 @@ struct ContentView: View {
                 .strokeBorder(tint.opacity(0.18), lineWidth: 1)
         )
         .shadow(color: tint.opacity(0.12), radius: 10, y: 4)
+    }
+
+    private func sparkline(values: [Double], tint: Color) -> some View {
+        GeometryReader { proxy in
+            let points = sparklinePoints(values, size: proxy.size)
+            ZStack {
+                if points.count > 1 {
+                    Path { path in
+                        path.move(to: points[0])
+                        for point in points.dropFirst() {
+                            path.addLine(to: point)
+                        }
+                    }
+                    .stroke(tint, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+
+                    Path { path in
+                        path.move(to: CGPoint(x: points[0].x, y: proxy.size.height))
+                        for point in points {
+                            path.addLine(to: point)
+                        }
+                        path.addLine(to: CGPoint(x: points.last?.x ?? proxy.size.width, y: proxy.size.height))
+                        path.closeSubpath()
+                    }
+                    .fill(LinearGradient(colors: [tint.opacity(0.30), tint.opacity(0.02)], startPoint: .top, endPoint: .bottom))
+                } else if let point = points.first {
+                    Circle()
+                        .fill(tint)
+                        .frame(width: 6, height: 6)
+                        .position(point)
+                }
+            }
+        }
+    }
+
+    private func sparklinePoints(_ values: [Double], size: CGSize) -> [CGPoint] {
+        guard !values.isEmpty, size.width > 0, size.height > 0 else { return [] }
+        let minValue = values.min() ?? 0
+        let maxValue = values.max() ?? 1
+        let range = max(maxValue - minValue, 1)
+        let step = values.count > 1 ? size.width / CGFloat(values.count - 1) : 0
+        return values.enumerated().map { index, value in
+            let normalized = (value - minValue) / range
+            let x = CGFloat(index) * step
+            let y = size.height - CGFloat(normalized) * size.height
+            return CGPoint(x: x, y: y)
+        }
     }
 
     private var activitySearchBar: some View {
