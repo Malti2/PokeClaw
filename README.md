@@ -27,6 +27,8 @@ PokeClaw works on **macOS** (any Mac) and **Linux** (Debian/Ubuntu, Fedora/RHEL,
 | `search_files` | Find files by glob pattern (e.g. `**/*.ts`) |
 | `run_command` | Run any shell command (`git`, `npm`, `brew`, `python`…) |
 | `get_env` | Read environment variables |
+| `search_text` | Search text inside files under allowed paths |
+| `system_info` | Show machine/runtime details for troubleshooting |
 
 ---
 
@@ -109,6 +111,7 @@ npm init -y && npm install glob && npm install -D typescript @types/node
 export POKECLAW_PORT=3741
 export POKECLAW_ROOTS="$HOME"
 export POKECLAW_TOKEN="your-secret-token-here"
+export POKECLAW_LOG_LEVEL=info
 ```
 
 **Linux** — add to `~/.bashrc`:
@@ -117,6 +120,7 @@ export POKECLAW_TOKEN="your-secret-token-here"
 export POKECLAW_PORT=3741
 export POKECLAW_ROOTS="$HOME"
 export POKECLAW_TOKEN="your-secret-token-here"
+export POKECLAW_LOG_LEVEL=info
 ```
 
 To restrict to specific folders only:
@@ -262,6 +266,20 @@ systemctl --user enable --now pokeclaw
 
 For a permanent (stable) tunnel URL, create a named Cloudflare tunnel:
 https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/
+
+---
+
+## Beta branch notes
+
+This branch starts with a few practical improvements:
+
+- richer server logging with color when available
+- a new `search_text` MCP tool for searching file contents
+- a new `system_info` MCP tool for quick runtime diagnostics
+- `/health` now returns auth and root-count details
+- `POKECLAW_LOG_LEVEL` for quieter or more verbose logs
+
+I also want to explore a more polished desktop wrapper next, likely a native macOS menu bar app or a lightweight Electron shell around the server.
 
 ---
 
