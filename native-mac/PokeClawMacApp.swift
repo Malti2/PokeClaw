@@ -255,6 +255,7 @@ final class PokeClawConnectionModel: ObservableObject {
     @Published var tunnelEndpoint: String = "https://your-tunnel.trycloudflare.com/mcp"
     @Published var customCommand: String = ""
     @Published var customCommandOutput: String = "Enter a command to run on this Mac."
+    @Published var customCommandBanner: String? = nil
     @Published var isRunningCustomCommand: Bool = false
     @Published var serverStatus: String = "Checking server status…"
     @Published var statusMessage: String = "Ready to connect PokeClaw"
@@ -435,10 +436,12 @@ final class PokeClawConnectionModel: ObservableObject {
         do {
             let output = try await executeShellCommand(command)
             customCommandOutput = output.isEmpty ? "(no output)" : output
+            customCommandBanner = "Custom command finished"
             lastAction = "Ran custom command"
             statusMessage = "Custom command finished"
         } catch {
             customCommandOutput = "Command failed: \(error.localizedDescription)"
+            customCommandBanner = "Custom command failed"
             lastAction = "Custom command failed"
             statusMessage = "Could not run custom command"
         }
