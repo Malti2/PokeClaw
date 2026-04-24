@@ -4,7 +4,6 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var model: PokeClawConnectionModel
     @State private var activitySearchText: String = ""
-    @State private var customCommandText: String = ""
 
     private struct QuickAction: Identifiable {
         let id = UUID()
@@ -108,17 +107,18 @@ struct ContentView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 6) {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("PokeClaw")
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.system(size: 30, weight: .semibold, design: .rounded))
                 Text("Experimental native Mac companion for the local MCP server")
-                    .font(.subheadline)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             statusPill
         }
+        .padding(.bottom, 2)
     }
 
     private var statusPill: some View {
@@ -137,28 +137,42 @@ struct ContentView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.08), lineWidth: 1))
     }
 
     private var connectionBox: some View {
         GroupBox("Connection") {
-            VStack(alignment: .leading, spacing: 8) {
-                LabeledContent("Local MCP", value: model.localEndpoint)
-                LabeledContent("Health", value: model.healthEndpoint)
-                LabeledContent("Logs", value: model.logsEndpoint)
-                LabeledContent("Console", value: model.consoleEndpoint)
-                LabeledContent("Tool Calls", value: model.toolCallsEndpoint)
-                LabeledContent("Tunnel", value: model.tunnelEndpoint)
-                LabeledContent("Status", value: model.statusMessage)
-                LabeledContent("Last action", value: model.lastAction)
+            VStack(alignment: .leading, spacing: 10) {
+                connectionRow("Local MCP", model.localEndpoint)
+                connectionRow("Health", model.healthEndpoint)
+                connectionRow("Logs", model.logsEndpoint)
+                connectionRow("Console", model.consoleEndpoint)
+                connectionRow("Tool Calls", model.toolCallsEndpoint)
+                connectionRow("Tunnel", model.tunnelEndpoint)
+                connectionRow("Status", model.statusMessage)
+                connectionRow("Last action", model.lastAction)
             }
             .font(.callout)
             .textSelection(.enabled)
         }
     }
 
+    private func connectionRow(_ label: String, _ value: String) -> some View {
+        LabeledContent {
+            Text(value)
+                .foregroundStyle(.secondary)
+        } label: {
+            Text(label)
+        }
+    }
+
     private var quickActionsBox: some View {
         GroupBox("Quick Actions") {
-            LazyVGrid(columns: quickActionColumns, spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("One-click actions for the MCP server and local tools")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                LazyVGrid(columns: quickActionColumns, spacing: 12) {
                 ForEach(quickActions) { quickAction in
                     Button(action: quickAction.action) {
                         VStack(alignment: .leading, spacing: 8) {
@@ -197,7 +211,7 @@ struct ContentView: View {
 
     private var searchTextBox: some View {
         GroupBox("searchtext results") {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Search root")
@@ -233,25 +247,24 @@ struct ContentView: View {
 
     private var customCommandBox: some View {
         GroupBox("Run Custom Command") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Command")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Command")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack(alignment: .top, spacing: 12) {
                         TextField("e.g. ls -la /Applications", text: $model.customCommand)
                             .textFieldStyle(.roundedBorder)
                             .onSubmit {
                                 Task { await model.runCustomCommand() }
                             }
+                        Button(model.isRunningCustomCommand ? "Running…" : "Run") {
+                            Task { await model.runCustomCommand() }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .disabled(model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
-                    Button(model.isRunningCustomCommand ? "Running…" : "Run") {
-                        Task { await model.runCustomCommand() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .padding(.top, 18)
-                    .disabled(model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -274,8 +287,9 @@ struct ContentView: View {
                             .textSelection(.enabled)
                     }
                     .frame(minHeight: 110)
-                    .padding(10)
+                    .padding(12)
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.08), lineWidth: 1))
                 }
                 Text("Runs locally on this Mac through /bin/zsh -lc.")
                     .font(.caption)
@@ -286,7 +300,7 @@ struct ContentView: View {
     }
     private var systemMonitoringBox: some View {
         GroupBox("System Monitoring") {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Mac resource snapshot")
@@ -431,7 +445,7 @@ struct ContentView: View {
 
     private var toolCallsBox: some View {
         GroupBox("Recent MCP Tool Calls") {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Latest calls")
                         .font(.callout.weight(.medium))
@@ -504,7 +518,7 @@ struct ContentView: View {
 
     private var logsBox: some View {
         GroupBox("MCP logs") {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Recent activity")
                         .font(.callout.weight(.medium))
@@ -541,7 +555,7 @@ struct ContentView: View {
 
     private var roadmapBox: some View {
         GroupBox("Polish roadmap") {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 ForEach(model.notes, id: \.self) { note in
                     Label(note, systemImage: "checkmark.seal")
                 }
@@ -552,7 +566,7 @@ struct ContentView: View {
 
     private var directionBox: some View {
         GroupBox("Native app direction") {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 ForEach(toolTiles, id: \.title) { tile in
                     Label {
                         VStack(alignment: .leading, spacing: 2) {
