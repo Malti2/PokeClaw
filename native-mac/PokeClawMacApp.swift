@@ -15,7 +15,7 @@ struct PokeClawMacApp: App {
         .windowToolbarStyle(.unifiedCompact)
 
         Settings {
-            PokeClawSettingsView()
+            PokeClawSettingsView(model: model)
         }
         .tint(Self.accentColor(named: accentColorName))
     }
@@ -37,6 +37,7 @@ struct PokeClawMacApp: App {
 }
 
 struct PokeClawSettingsView: View {
+    @ObservedObject var model: PokeClawConnectionModel
     @AppStorage("pokeclaw.accentColor") private var accentColorName = "blue"
 
     private let accentOptions: [(name: String, label: String, color: Color)] = [
@@ -71,9 +72,33 @@ struct PokeClawSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section("Connection") {
+                TextField("Host", text: $model.serverHost)
+                Stepper(value: $model.serverPort, in: 1...65535, step: 1) {
+                    HStack {
+                        Text("Port")
+                        Spacer()
+                        Text("\(model.serverPort)")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Server URL")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(model.localEndpoint)
+                        .font(.system(.caption, design: .monospaced))
+                        .textSelection(.enabled)
+                }
+                Text("Used by the MCP connection, logs, console, and tool call views.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(20)
-        .frame(width: 360)
+        .frame(width: 420)
     }
 }
 
@@ -131,12 +156,30 @@ final class PokeClawConnectionModel: ObservableObject {
         let text: String?
     }
 
-    @Published var localEndpoint: String = "http://127.0.0.1:3741/mcp"
-    @Published var healthEndpoint: String = "http://127.0.0.1:3741/health"
-    @Published var logsEndpoint: String = "http://127.0.0.1:3741/logs"
-    @Published var consoleEndpoint: String = "http://127.0.0.1:3741/console"
-    @Published var toolCallsEndpoint: String = "http://127.0.0.1:3741/tool-calls"
+    @Published var serverHost: String = UserDefaults.standard.string(forKey: "pokeclaw.serverHost") ?? "127.0.0.1" {
+        didSet {
+            UserDefaults.standard.set(serverHost, forKey: "pokeclaw.serverHost")
+        }
+    }
+    @Published var serverPort: Int = {
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: "pokeclaw.serverPort") == nil { return 3741 }
+        return defaults.integer(forKey: "pokeclaw.serverPort")
+    }() {
+        didSet {
+            UserDefaults.standard.set(serverPort, forKey: "pokeclaw.serverPort")
+        }
+    }
+    var serverBaseURL: String { "http://\(serverHost):\(serverPort)" }
+    var localEndpoint: String { "\(serverBaseURL)/mcp" }
+    var healthEndpoint: String { "\(serverBaseURL)/health" }
+    var logsEndpoint: String { "\(serverBaseURL)/logs" }
+    var consoleEndpoint: String { "\(serverBaseURL)/console" }
+    var toolCallsEndpoint: String { "\(serverBaseURL)/tool-calls" }
     @Published var tunnelEndpoint: String = "https://your-tunnel.trycloudflare.com/mcp"
+    @Published var customCommand: String = ""
+    @Published var customCommandOutput: String = "Enter a command to run on this Mac."
+    @Published var isRunningCustomCommand: Bool = false
     @Published var serverStatus: String = "Checking server status…"
     @Published var statusMessage: String = "Ready to connect PokeClaw"
     @Published var lastAction: String = "No action yet"
@@ -302,6 +345,29 @@ final class PokeClawConnectionModel: ObservableObject {
         }
     }
 
+    func runCustomCommand() async {
+        let command = customCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !command.isEmpty else {
+            customCommandOutput = "Enter a command first."
+            statusMessage = "Custom command is empty"
+            return
+        }
+
+        isRunningCustomCommand = true
+        defer { isRunningCustomCommand = false }
+
+        do {
+            let output = try await executeShellCommand(command)
+            customCommandOutput = output.isEmpty ? "(no output)" : output
+            lastAction = "Ran custom command"
+            statusMessage = "Custom command finished"
+        } catch {
+            customCommandOutput = "Command failed: \(error.localizedDescription)"
+            lastAction = "Custom command failed"
+            statusMessage = "Could not run custom command"
+        }
+    }
+
     func runSearchText() async {
         isRunningSearch = true
         defer { isRunningSearch = false }
@@ -343,6 +409,27 @@ final class PokeClawConnectionModel: ObservableObject {
                 let pieces = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
                 return pieces.count == 2 ? String(pieces[1]).trimmingCharacters(in: .whitespacesAndNewlines) : nil
             }
+    }
+
+    private func executeShellCommand(_ command: String) async throws -> String {
+        try await Task.detached(priority: .userInitiated) {
+            let process = Process()
+            let pipe = Pipe()
+            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            process.arguments = ["-lc", command]
+            process.standardOutput = pipe
+            process.standardError = pipe
+            try process.run()
+            process.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: data, encoding: .utf8) ?? ""
+            if process.terminationStatus == 0 {
+                return output.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            let suffix = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            let statusLine = "Exit code: \(process.terminationStatus)"
+            return suffix.isEmpty ? statusLine : suffix + "\n" + statusLine
+        }.value
     }
 
     func callTool(name: String, arguments: [String: String]) async throws -> String {
