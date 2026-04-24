@@ -20,6 +20,16 @@ final class PokeClawConnectionModel: ObservableObject {
         let lines: [String]
     }
 
+    struct ConsoleResponse: Decodable {
+        let lines: [ConsoleLine]
+    }
+
+    struct ConsoleLine: Decodable, Identifiable {
+        let stream: String
+        let line: String
+        var id: String { "\(stream)-\(line)" }
+    }
+
     struct HealthResponse: Decodable {
         let status: String
         let name: String
@@ -50,8 +60,9 @@ final class PokeClawConnectionModel: ObservableObject {
     @Published var localEndpoint: String = "http://127.0.0.1:3741/mcp"
     @Published var healthEndpoint: String = "http://127.0.0.1:3741/health"
     @Published var logsEndpoint: String = "http://127.0.0.1:3741/logs"
+    @Published var consoleEndpoint: String = "http://127.0.0.1:3741/console"
     @Published var tunnelEndpoint: String = "https://your-tunnel.trycloudflare.com/mcp"
-    @Published var serverStatus: String = "Checking server status\u2026"
+    @Published var serverStatus: String = "Checking server status…"
     @Published var statusMessage: String = "Ready to connect PokeClaw"
     @Published var lastAction: String = "No action yet"
     @Published var lastStatusRefresh: String = "Never"
@@ -59,12 +70,14 @@ final class PokeClawConnectionModel: ObservableObject {
     @Published var searchQuery: String = "PokeClaw"
     @Published var searchTextOutput: String = "Tap searchtext to see results."
     @Published var systemInfoOutput: String = "Tap systeminfo to inspect the host."
-    @Published var logLines: [String] = ["Waiting for server logs\u2026"]
+    @Published var consoleLines: [ConsoleLine] = [.init(stream: "stdout", line: "Waiting for server console…")]
+    @Published var logLines: [String] = ["Waiting for server logs…"]
     @Published var isConnected: Bool = false
     @Published var isLoadingLogs: Bool = false
     @Published var isRefreshingStatus: Bool = false
     @Published var isRunningSearch: Bool = false
     @Published var isLoadingSystemInfo: Bool = false
+    @Published var isLoadingConsole: Bool = false
     @Published var notes: [String] = [
         "Keep the local MCP server running",
         "Show the health endpoint alongside the MCP URL",
@@ -77,10 +90,12 @@ final class PokeClawConnectionModel: ObservableObject {
 
     func startAutoRefresh() async {
         await refreshServerStatus()
+        await refreshConsole()
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 15_000_000_000)
             if Task.isCancelled { break }
             await refreshServerStatus()
+            await refreshConsole()
         }
     }
 
@@ -98,13 +113,13 @@ final class PokeClawConnectionModel: ObservableObject {
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             if let health = try? JSONDecoder().decode(HealthResponse.self, from: data) {
-                serverStatus = "Online \u00B7 \(health.version) \u00B7 \(health.roots) roots"
+                serverStatus = "Online · \(health.version) · \(health.roots) roots"
                 isConnected = health.status.lowercased() == "ok"
                 statusMessage = isConnected ? "Server healthy and ready" : "Server responded with status \(health.status)"
                 lastAction = "Refreshed server status"
                 lastStatusRefresh = timestamp()
             } else {
-                serverStatus = "Online \u00B7 Health payload received"
+                serverStatus = "Online · Health payload received"
                 isConnected = true
                 statusMessage = "Server responded, but the payload was not decoded"
                 lastAction = "Refreshed server status"
@@ -138,6 +153,28 @@ final class PokeClawConnectionModel: ObservableObject {
             logLines = ["Failed to load logs: \(error.localizedDescription)"]
             statusMessage = "Could not fetch MCP logs"
             lastAction = "Log refresh failed"
+        }
+    }
+
+    func refreshConsole() async {
+        guard let url = URL(string: consoleEndpoint) else {
+            statusMessage = "Invalid console endpoint"
+            return
+        }
+
+        isLoadingConsole = true
+        defer { isLoadingConsole = false }
+
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let response = try JSONDecoder().decode(ConsoleResponse.self, from: data)
+            consoleLines = response.lines.isEmpty ? [.init(stream: "stdout", line: "No console lines yet.")] : response.lines
+            lastAction = "Refreshed console"
+            statusMessage = "Loaded \(consoleLines.count) console lines"
+        } catch {
+            consoleLines = [.init(stream: "stderr", line: "Failed to load console: \(error.localizedDescription)")]
+            statusMessage = "Could not fetch server console"
+            lastAction = "Console refresh failed"
         }
     }
 
@@ -188,14 +225,14 @@ final class PokeClawConnectionModel: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let payload = [
+        let payload: [String: Any] = [
             "jsonrpc": "2.0",
             "id": UUID().uuidString,
             "method": "tools/call",
             "params": [
                 "name": name,
                 "arguments": arguments
-            ] as [String : Any]
+            ]
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: payload, options: [])
