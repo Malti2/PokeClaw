@@ -240,7 +240,7 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Label("Updated (model.systemMonitoringUpdated)", systemImage: "clock")
+                    Label("Updated \(model.systemMonitoringUpdated)", systemImage: "clock")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 10)
@@ -320,7 +320,7 @@ struct ContentView: View {
                     .buttonStyle(.bordered)
                 }
                 Spacer()
-                Text("(filteredLogLines.count) logs · (filteredToolCalls.count) calls")
+                Text("\(filteredLogLines.count) logs · \(filteredToolCalls.count) calls")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
