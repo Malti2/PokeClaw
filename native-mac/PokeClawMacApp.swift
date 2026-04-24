@@ -28,6 +28,25 @@ final class PokeClawConnectionModel: ObservableObject {
         let roots: Int
     }
 
+    struct MCPResponse: Decodable {
+        let result: MCPResult?
+        let error: MCPError?
+    }
+
+    struct MCPError: Decodable {
+        let code: Int
+        let message: String
+    }
+
+    struct MCPResult: Decodable {
+        let content: [MCPContentItem]?
+    }
+
+    struct MCPContentItem: Decodable {
+        let type: String
+        let text: String?
+    }
+
     @Published var localEndpoint: String = "http://127.0.0.1:3741/mcp"
     @Published var healthEndpoint: String = "http://127.0.0.1:3741/health"
     @Published var logsEndpoint: String = "http://127.0.0.1:3741/logs"
@@ -38,10 +57,14 @@ final class PokeClawConnectionModel: ObservableObject {
     @Published var lastStatusRefresh: String = "Never"
     @Published var searchRoot: String = "~/Projects"
     @Published var searchQuery: String = "PokeClaw"
+    @Published var searchTextOutput: String = "Tap searchtext to see results."
+    @Published var systemInfoOutput: String = "Tap systeminfo to inspect the host."
     @Published var logLines: [String] = ["Waiting for server logs\u2026"]
     @Published var isConnected: Bool = false
     @Published var isLoadingLogs: Bool = false
     @Published var isRefreshingStatus: Bool = false
+    @Published var isRunningSearch: Bool = false
+    @Published var isLoadingSystemInfo: Bool = false
     @Published var notes: [String] = [
         "Keep the local MCP server running",
         "Show the health endpoint alongside the MCP URL",
@@ -116,5 +139,78 @@ final class PokeClawConnectionModel: ObservableObject {
             statusMessage = "Could not fetch MCP logs"
             lastAction = "Log refresh failed"
         }
+    }
+
+    func runSystemInfo() async {
+        isLoadingSystemInfo = true
+        defer { isLoadingSystemInfo = false }
+
+        do {
+            systemInfoOutput = try await callTool(name: "system_info", arguments: [:])
+            lastAction = "Ran systeminfo"
+            statusMessage = "Loaded machine details"
+        } catch {
+            systemInfoOutput = "systeminfo failed: \(error.localizedDescription)"
+            lastAction = "systeminfo failed"
+            statusMessage = "Could not load systeminfo"
+        }
+    }
+
+    func runSearchText() async {
+        isRunningSearch = true
+        defer { isRunningSearch = false }
+
+        do {
+            let output = try await callTool(
+                name: "search_text",
+                arguments: [
+                    "root": searchRoot,
+                    "query": searchQuery,
+                    "max_results": "12"
+                ]
+            )
+            searchTextOutput = output
+            lastAction = "Ran searchtext for \(searchQuery)"
+            statusMessage = output == "No matches found." ? "No search matches in \(searchRoot)" : "Search results loaded"
+        } catch {
+            searchTextOutput = "searchtext failed: \(error.localizedDescription)"
+            lastAction = "searchtext failed"
+            statusMessage = "Could not run searchtext"
+        }
+    }
+
+    func callTool(name: String, arguments: [String: String]) async throws -> String {
+        guard let url = URL(string: localEndpoint) else {
+            throw URLError(.badURL)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let payload = [
+            "jsonrpc": "2.0",
+            "id": UUID().uuidString,
+            "method": "tools/call",
+            "params": [
+                "name": name,
+                "arguments": arguments
+            ] as [String : Any]
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload, options: [])
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let response = try JSONDecoder().decode(MCPResponse.self, from: data)
+
+        if let error = response.error {
+            throw NSError(domain: "PokeClawMCP", code: error.code, userInfo: [NSLocalizedDescriptionKey: error.message])
+        }
+
+        let text = response.result?.content?
+            .compactMap { $0.text }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return (text?.isEmpty == false ? text! : "(no output)")
     }
 }
