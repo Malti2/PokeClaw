@@ -272,6 +272,16 @@ final class PokeClawConnectionModel: ObservableObject {
             }
     }
 
+    private func metricValue(for key: String, in output: String) -> String? {
+        output
+            .split(separator: "\n")
+            .first(where: { $0.hasPrefix("\(key)=") })
+            .flatMap { line in
+                let pieces = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+                return pieces.count == 2 ? String(pieces[1]).trimmingCharacters(in: .whitespacesAndNewlines) : nil
+            }
+    }
+
     func callTool(name: String, arguments: [String: String]) async throws -> String {
         guard let url = URL(string: localEndpoint) else {
             throw URLError(.badURL)
