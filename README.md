@@ -15,15 +15,9 @@ By default, Poke lives in the cloud and doesn't have access to files on your com
 
 PokeClaw works on **macOS** (any Mac) and **Linux** (Debian/Ubuntu, Fedora/RHEL, Arch, and compatible distributions).
 
-### Native Mac companion (experimental)
+### Native Mac companion
 
-A native SwiftUI scaffold now lives in `native-mac/`. It is intentionally lightweight for now and exists to explore a Mac-first shell that can eventually sit alongside the local MCP server.
-
-Planned next steps:
-- turn the scaffold into a menu bar utility
-- add server status and tunnel visibility
-- wire in controls for start/stop and quick copy actions
-- tighten the visual polish so the Mac app feels like a first-class companion
+A native SwiftUI companion now lives in `native-mac/` and gives PokeClaw a Mac-first surface for menu bar access, login startup, notifications, and log export.
 
 
 ---
@@ -282,15 +276,14 @@ https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/ge
 
 ## Beta branch notes
 
-This branch starts with a few practical improvements:
+This branch includes:
 
 - richer server logging with color when available
 - a new `search_text` MCP tool for searching file contents
 - a new `system_info` MCP tool for quick runtime diagnostics
 - `/health` now returns auth and root-count details
 - `POKECLAW_LOG_LEVEL` for quieter or more verbose logs
-
-I also want to explore a more polished desktop wrapper next, likely a native macOS menu bar app or a lightweight Electron shell around the server.
+- a native macOS companion with menu bar status, auto-start on login, notifications, and log export
 
 ---
 

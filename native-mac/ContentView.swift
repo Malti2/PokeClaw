@@ -235,7 +235,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("PokeClaw")
                     .font(.system(size: 30, weight: .semibold, design: .rounded))
-                Text("Experimental native Mac companion for the local MCP server")
+                Text("Native Mac companion for the local MCP server")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
