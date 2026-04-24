@@ -294,6 +294,8 @@ final class PokeClawConnectionModel: ObservableObject {
     @Published var systemCpuUsage: String = "—"
     @Published var systemMemoryUsage: String = "—"
     @Published var systemMonitoringUpdated: String = "Never"
+    @Published var systemCpuHistory: [Double] = []
+    @Published var systemMemoryHistory: [Double] = []
     @Published var consoleLines: [ConsoleLine] = [.init(stream: "stdout", line: "Waiting for server console…")]
     @Published var toolCalls: [ToolCallEntry] = []
     @Published var logLines: [String] = ["Waiting for server logs…"]
@@ -418,13 +420,17 @@ final class PokeClawConnectionModel: ObservableObject {
         do {
             let output = try await callTool(name: "system_info", arguments: [:])
             systemInfoOutput = output
-            systemCpuUsage = metricValue(for: "cpu_percent", in: output).map { "\($0)%" } ?? "—"
-            systemMemoryUsage = metricValue(for: "memory_percent", in: output).map { "\($0)%" } ?? "—"
+            let cpu = metricValue(for: "cpu_percent", in: output)
+            let memory = metricValue(for: "memory_percent", in: output)
+            systemCpuUsage = cpu.map { "($0)%" } ?? "—"
+            systemMemoryUsage = memory.map { "($0)%" } ?? "—"
+            appendSystemMetricHistory(cpu, to: &systemCpuHistory)
+            appendSystemMetricHistory(memory, to: &systemMemoryHistory)
             systemMonitoringUpdated = timestamp()
             lastAction = "Refreshed system monitoring"
             statusMessage = "Loaded CPU and RAM metrics"
         } catch {
-            systemInfoOutput = "systeminfo failed: \(error.localizedDescription)"
+            systemInfoOutput = "systeminfo failed: (error.localizedDescription)"
             systemCpuUsage = "—"
             systemMemoryUsage = "—"
             systemMonitoringUpdated = timestamp()
@@ -500,22 +506,21 @@ final class PokeClawConnectionModel: ObservableObject {
 
     private func metricValue(for key: String, in output: String) -> String? {
         output
-            .split(separator: "\n")
-            .first(where: { $0.hasPrefix("\(key)=") })
+            .split(separator: "
+")
+            .first(where: { $0.hasPrefix("(key)=") })
             .flatMap { line in
                 let pieces = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
                 return pieces.count == 2 ? String(pieces[1]).trimmingCharacters(in: .whitespacesAndNewlines) : nil
             }
     }
 
-    private func metricValue(for key: String, in output: String) -> String? {
-        output
-            .split(separator: "\n")
-            .first(where: { $0.hasPrefix("\(key)=") })
-            .flatMap { line in
-                let pieces = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
-                return pieces.count == 2 ? String(pieces[1]).trimmingCharacters(in: .whitespacesAndNewlines) : nil
-            }
+    private func appendSystemMetricHistory(_ value: String?, to history: inout [Double]) {
+        guard let value, let doubleValue = Double(value) else { return }
+        history.append(doubleValue)
+        if history.count > 24 {
+            history = Array(history.suffix(24))
+        }
     }
 
     private func executeShellCommand(_ command: String) async throws -> String {
