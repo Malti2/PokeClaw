@@ -43,6 +43,8 @@ const ROOTS: string[] = (process.env.POKECLAW_ROOTS ?? HOME)
   .map((r) => r.trim().replace(/^~/, HOME))
   .filter(Boolean);
 const LOG_LEVEL = (process.env.POKECLAW_LOG_LEVEL ?? "info").toLowerCase();
+const RECENT_LOG_LIMIT = 250;
+const recentLogs: string[] = [];
 
 // ─── Logging ───────────────────────────────────────────────────────────────────
 const supportsColor = Boolean(process.stdout.isTTY && process.env.NO_COLOR !== "1");
@@ -58,9 +60,16 @@ function timestamp() {
   return new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+function pushRecentLog(entry: string) {
+  recentLogs.push(entry);
+  if (recentLogs.length > RECENT_LOG_LIMIT) recentLogs.splice(0, recentLogs.length - RECENT_LOG_LIMIT);
+}
+
 function log(level: "info" | "warn" | "error" | "debug", msg: string) {
   if (level === "debug" && LOG_LEVEL !== "debug") return;
   const prefix = level === "error" ? color.red("error") : level === "warn" ? color.yellow("warn") : level === "debug" ? color.dim("debug") : color.green("info");
+  const entry = `[${timestamp()}] ${level.toUpperCase()} ${msg}`;
+  pushRecentLog(entry);
   console.log(`[${timestamp()}] ${prefix} ${msg}`);
 }
 
@@ -76,6 +85,8 @@ function logToolUse(tool: string, args: Record<string, unknown>) {
   const preview = Object.entries(args)
     .map(([k, v]) => `${k}=${previewValue(v)}`)
     .join("  ");
+  const entry = `TOOL ${tool}${preview ? ` :: ${preview}` : ""}`;
+  pushRecentLog(`[${timestamp()}] ${entry}`);
   console.log(`\n🦞 Poke is using tool: ${color.cyan(tool)}`);
   if (preview) console.log(`   ${preview}`);
 }
@@ -407,6 +418,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   if (req.method === "GET" && url.pathname === "/health") {
     json(res, 200, { status: "ok", name: APP_NAME, version: VERSION, auth: Boolean(TOKEN), roots: ROOTS.length });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/logs") {
+    json(res, 200, { lines: recentLogs.slice(-100) });
     return;
   }
 
