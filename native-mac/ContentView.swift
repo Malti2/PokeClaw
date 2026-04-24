@@ -7,7 +7,6 @@ struct ContentView: View {
     @State private var commandToast: PokeClawConnectionModel.CustomCommandBanner? = nil
     @FocusState private var customCommandFocused: Bool
     @AppStorage("pokeclaw.favoriteCommands") private var favoriteCommandsData = "[]"
-    @AppStorage("pokeclaw.commandHistory") private var commandHistoryData = "[]"
 
     private struct QuickAction: Identifiable {
         let id = UUID()
@@ -836,12 +835,14 @@ struct ContentView: View {
         return singleLine.count > 36 ? String(singleLine.prefix(36)) + "…" : singleLine
     }
 
+    private let commandHistoryKey = "pokeclaw.commandHistory"
+
     private func commandHistory() -> [String] {
-        Self.decodeStringArray(commandHistoryData)
+        UserDefaults.standard.stringArray(forKey: commandHistoryKey) ?? []
     }
 
     private func saveCommandHistory(_ history: [String]) {
-        commandHistoryData = Self.encodeStringArray(history)
+        UserDefaults.standard.set(history, forKey: commandHistoryKey)
     }
 
     private func recallHistoryCommand(_ command: String) {
@@ -875,16 +876,6 @@ struct ContentView: View {
     private static func decodeFavorites(_ string: String) -> [FavoriteCommand] {
         guard let data = string.data(using: .utf8), !string.isEmpty else { return [] }
         return (try? JSONDecoder().decode([FavoriteCommand].self, from: data)) ?? []
-    }
-
-    private static func decodeStringArray(_ string: String) -> [String] {
-        guard let data = string.data(using: .utf8), !string.isEmpty else { return [] }
-        return (try? JSONDecoder().decode([String].self, from: data)) ?? []
-    }
-
-    private static func encodeStringArray(_ values: [String]) -> String {
-        guard let data = try? JSONEncoder().encode(values), let string = String(data: data, encoding: .utf8) else { return "[]" }
-        return string
     }
 
     private static func encodeFavorites(_ favorites: [FavoriteCommand]) -> String {
