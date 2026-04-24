@@ -422,15 +422,15 @@ final class PokeClawConnectionModel: ObservableObject {
             systemInfoOutput = output
             let cpu = metricValue(for: "cpu_percent", in: output)
             let memory = metricValue(for: "memory_percent", in: output)
-            systemCpuUsage = cpu.map { "($0)%" } ?? "—"
-            systemMemoryUsage = memory.map { "($0)%" } ?? "—"
+            systemCpuUsage = cpu.map { "\($0)%" } ?? "—"
+            systemMemoryUsage = memory.map { "\($0)%" } ?? "—"
             appendSystemMetricHistory(cpu, to: &systemCpuHistory)
             appendSystemMetricHistory(memory, to: &systemMemoryHistory)
             systemMonitoringUpdated = timestamp()
             lastAction = "Refreshed system monitoring"
             statusMessage = "Loaded CPU and RAM metrics"
         } catch {
-            systemInfoOutput = "systeminfo failed: (error.localizedDescription)"
+            systemInfoOutput = "systeminfo failed: \(error.localizedDescription)"
             systemCpuUsage = "—"
             systemMemoryUsage = "—"
             systemMonitoringUpdated = timestamp()
