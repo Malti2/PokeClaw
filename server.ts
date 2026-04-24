@@ -45,6 +45,7 @@ const LOG_LEVEL = (process.env.POKECLAW_LOG_LEVEL ?? "info").toLowerCase();
 const RECENT_LOG_LIMIT = 250;
 const recentLogs: string[] = [];
 const recentConsole: { stream: "stdout" | "stderr"; line: string }[] = [];
+const recentToolCalls: { timestamp: string; tool: string; preview: string }[] = [];
 
 function timestamp() {
   return new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -58,6 +59,11 @@ function pushRecentLog(entry: string) {
 function pushConsole(stream: "stdout" | "stderr", line: string) {
   recentConsole.push({ stream, line });
   if (recentConsole.length > RECENT_LOG_LIMIT) recentConsole.splice(0, recentConsole.length - RECENT_LOG_LIMIT);
+}
+
+function pushRecentToolCall(entry: { timestamp: string; tool: string; preview: string }) {
+  recentToolCalls.push(entry);
+  if (recentToolCalls.length > RECENT_LOG_LIMIT) recentToolCalls.splice(0, recentToolCalls.length - RECENT_LOG_LIMIT);
 }
 
 function emitConsole(stream: "stdout" | "stderr", message: string) {
@@ -92,7 +98,9 @@ function logToolUse(tool: string, args: Record<string, unknown>) {
     .map(([k, v]) => `${k}=${previewValue(v)}`)
     .join("  ");
   const entry = `TOOL ${tool}${preview ? ` :: ${preview}` : ""}`;
-  pushRecentLog(`[${timestamp()}] ${entry}`);
+  const stamp = timestamp();
+  pushRecentLog(`[${stamp}] ${entry}`);
+  pushRecentToolCall({ timestamp: stamp, tool, preview: preview || "(no args)" });
   emitConsole("stdout", `Poke is using tool: ${tool}`);
   if (preview) emitConsole("stdout", `   ${preview}`);
 }
@@ -189,7 +197,41 @@ async function toolSearchText(args: Record<string, unknown>): Promise<string> {
   return out || "No matches found.";
 }
 
+function parseTopMemoryBytes(value: string, unit: string): number {
+  const amount = Number(value);
+  switch (unit.toUpperCase()) {
+    case "K": return amount * 1024;
+    case "M": return amount * 1024 * 1024;
+    case "G": return amount * 1024 * 1024 * 1024;
+    default: return amount;
+  }
+}
+
+function readSystemUsage(): { cpuPercent: string; memoryPercent: string } {
+  let cpuPercent = "unknown";
+  let memoryPercent = "unknown";
+
+  try {
+    const topOutput = execSync("top -l 1 -s 0", { encoding: "utf-8", timeout: 10_000, stdio: ["pipe", "pipe", "pipe"] });
+    const cpuMatch = topOutput.match(/CPU usage:\s+.*?([0-9.]+)% idle/i);
+    if (cpuMatch) cpuPercent = (100 - Number(cpuMatch[1])).toFixed(1);
+
+    const memoryMatch = topOutput.match(/PhysMem:\s+([0-9.]+)([KMG]) used/i);
+    const totalBytesText = execSync("sysctl -n hw.memsize", { encoding: "utf-8", timeout: 5_000, stdio: ["pipe", "pipe", "pipe"] }).trim();
+    const totalBytes = Number(totalBytesText);
+    if (memoryMatch && Number.isFinite(totalBytes) && totalBytes > 0) {
+      const usedBytes = parseTopMemoryBytes(memoryMatch[1], memoryMatch[2]);
+      memoryPercent = ((usedBytes / totalBytes) * 100).toFixed(1);
+    }
+  } catch {
+    // Keep fallback values when system commands are unavailable.
+  }
+
+  return { cpuPercent, memoryPercent };
+}
+
 function toolSystemInfo(): string {
+  const systemUsage = readSystemUsage();
   return [
     `app=${APP_NAME}`,
     `version=${VERSION}`,
@@ -201,6 +243,8 @@ function toolSystemInfo(): string {
     `roots=${ROOTS.join(", ")}`,
     `auth=${TOKEN ? "enabled" : "disabled"}`,
     `log_level=${LOG_LEVEL}`,
+    `cpu_percent=${systemUsage.cpuPercent}`,
+    `memory_percent=${systemUsage.memoryPercent}`,
     `bun=${process.versions.bun ?? "(unknown)"}`,
     `node=${process.version}`,
     `cwd=${process.cwd()}`,
