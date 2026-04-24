@@ -1,7 +1,48 @@
+import AppKit
 import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var model: PokeClawConnectionModel
+
+    private struct QuickAction: Identifiable {
+        let id = UUID()
+        let title: String
+        let subtitle: String
+        let symbol: String
+        let tint: Color
+        let action: () -> Void
+    }
+
+    private var quickActions: [QuickAction] {
+        [
+            QuickAction(title: "systeminfo", subtitle: "Inspect host details", symbol: "desktopcomputer", tint: .blue) {
+                model.lastAction = "systeminfo quick action"
+                model.statusMessage = "Ready to inspect host details"
+            },
+            QuickAction(title: "searchtext", subtitle: "Search \(model.searchRoot)", symbol: "text.magnifyingglass", tint: .purple) {
+                model.lastAction = "searchtext quick action: \(model.searchQuery)"
+                model.statusMessage = "Ready to search \(model.searchRoot) for \(model.searchQuery)"
+            },
+            QuickAction(title: model.isRefreshingStatus ? "Refreshing status\u2026" : "Refresh status", subtitle: "Poll the MCP server", symbol: "arrow.clockwise", tint: .green) {
+                Task { await model.refreshServerStatus() }
+            },
+            QuickAction(title: model.isLoadingLogs ? "Refreshing logs\u2026" : "Refresh logs", subtitle: "Load recent activity", symbol: "list.bullet.rectangle", tint: .orange) {
+                Task { await model.refreshLogs() }
+            },
+            QuickAction(title: "Copy MCP URL", subtitle: model.localEndpoint, symbol: "doc.on.doc", tint: .teal) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(model.localEndpoint, forType: .string)
+                model.lastAction = "Copied MCP endpoint"
+                model.statusMessage = model.localEndpoint
+            },
+            QuickAction(title: "Open health", subtitle: model.healthEndpoint, symbol: "link", tint: .pink) {
+                if let url = URL(string: model.healthEndpoint) {
+                    NSWorkspace.shared.open(url)
+                    model.lastAction = "Opened health endpoint"
+                }
+            }
+        ]
+    }
 
     private var toolTiles: [(title: String, subtitle: String, symbol: String)] {
         [
@@ -9,30 +50,6 @@ struct ContentView: View {
             ("systeminfo", "Inspect host details", "desktopcomputer"),
             ("read/write/list", "Core filesystem tools", "folder")
         ]
-    }
-
-    private var actionTiles: some View {
-        Grid(horizontalSpacing: 12, verticalSpacing: 12) {
-            GridRow {
-                actionButton(title: "Show systeminfo", subtitle: "Inspect host + runtime details", symbol: "desktopcomputer") {
-                    model.lastAction = "systeminfo preview ready"
-                    model.statusMessage = "Native UI can surface machine details next"
-                }
-                actionButton(title: "Preview searchtext", subtitle: "Search \(model.searchRoot)", symbol: "text.magnifyingglass") {
-                    model.lastAction = "searchtext query: \(model.searchQuery)"
-                    model.statusMessage = "Searching \(model.searchRoot) for \(model.searchQuery)"
-                }
-            }
-            GridRow {
-                actionButton(title: "Open MCP endpoint", subtitle: model.localEndpoint, symbol: "link") {
-                    model.lastAction = "Copied MCP endpoint"
-                    model.statusMessage = model.localEndpoint
-                }
-                actionButton(title: model.isLoadingLogs ? "Refreshing logs\u2026" : "Refresh logs", subtitle: "Load recent MCP activity", symbol: "list.bullet.rectangle") {
-                    Task { await model.refreshLogs() }
-                }
-            }
-        }
     }
 
     var body: some View {
@@ -58,11 +75,42 @@ struct ContentView: View {
                     LabeledContent("Health", value: model.healthEndpoint)
                     LabeledContent("Logs", value: model.logsEndpoint)
                     LabeledContent("Tunnel", value: model.tunnelEndpoint)
+                    LabeledContent("Server status", value: model.serverStatus)
+                    LabeledContent("Last refreshed", value: model.lastStatusRefresh)
                     LabeledContent("Status", value: model.statusMessage)
                     LabeledContent("Last action", value: model.lastAction)
                 }
                 .font(.callout)
                 .textSelection(.enabled)
+            }
+
+            GroupBox("Quick Actions") {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(quickActions) { quickAction in
+                        Button(action: quickAction.action) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(alignment: .top, spacing: 10) {
+                                    Image(systemName: quickAction.symbol)
+                                        .foregroundStyle(quickAction.tint)
+                                        .frame(width: 18)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(quickAction.title)
+                                            .fontWeight(.semibold)
+                                        Text(quickAction.subtitle)
+                                            .foregroundStyle(.secondary)
+                                            .font(.caption)
+                                    }
+                                    Spacer(minLength: 0)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
+                            .padding(12)
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .font(.callout)
             }
 
             GroupBox("Tool launcher") {
@@ -84,7 +132,24 @@ struct ContentView: View {
                         }
                     }
 
-                    actionTiles
+                    HStack(spacing: 10) {
+                        Button("Preview systeminfo") {
+                            model.lastAction = "systeminfo preview ready"
+                            model.statusMessage = "Native UI can surface machine details next"
+                        }
+                        Button("Preview searchtext") {
+                            model.lastAction = "searchtext query: \(model.searchQuery)"
+                            model.statusMessage = "Searching \(model.searchRoot) for \(model.searchQuery)"
+                        }
+                        .buttonStyle(.bordered)
+                        Button("Copy MCP URL") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(model.localEndpoint, forType: .string)
+                            model.lastAction = "Copied MCP endpoint"
+                            model.statusMessage = model.localEndpoint
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
                 .font(.callout)
             }
@@ -150,9 +215,8 @@ struct ContentView: View {
                     model.statusMessage = model.isConnected ? "Ready for Poke requests" : "Waiting for a local server"
                     model.lastAction = model.isConnected ? "Connected" : "Disconnected"
                 }
-                Button("Refresh status") {
-                    model.statusMessage = "Checking local server, tunnel, and tool availability"
-                    model.lastAction = "Refreshed connection status"
+                Button(model.isRefreshingStatus ? "Refreshing\u2026" : "Refresh status") {
+                    Task { await model.refreshServerStatus() }
                 }
                 .buttonStyle(.bordered)
             }
@@ -160,33 +224,9 @@ struct ContentView: View {
             Spacer(minLength: 0)
         }
         .padding(20)
-        .frame(minWidth: 700, minHeight: 620)
+        .frame(minWidth: 760, minHeight: 700)
         .task {
-            await model.refreshLogs()
+            await model.startAutoRefresh()
         }
-    }
-
-    @ViewBuilder
-    private func actionButton(title: String, subtitle: String, symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: symbol)
-                        .frame(width: 18)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(title)
-                            .fontWeight(.semibold)
-                        Text(subtitle)
-                            .foregroundStyle(.secondary)
-                            .font(.caption)
-                    }
-                    Spacer(minLength: 0)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
     }
 }
