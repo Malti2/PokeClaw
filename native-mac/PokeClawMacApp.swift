@@ -5,10 +5,12 @@ import SwiftUI
 struct PokeClawMacApp: App {
     @StateObject private var model = PokeClawConnectionModel()
     @AppStorage("pokeclaw.accentColor") private var accentColorName = "blue"
+    @AppStorage("pokeclaw.appearanceMode") private var appearanceMode = "dark"
 
     var body: some Scene {
         WindowGroup {
             ContentView(model: model)
+                .preferredColorScheme(Self.colorScheme(named: appearanceMode))
         }
         .tint(Self.accentColor(named: accentColorName))
         .windowResizability(.contentSize)
@@ -16,8 +18,13 @@ struct PokeClawMacApp: App {
 
         Settings {
             PokeClawSettingsView(model: model)
+                .preferredColorScheme(Self.colorScheme(named: appearanceMode))
         }
         .tint(Self.accentColor(named: accentColorName))
+    }
+
+    static func colorScheme(named name: String) -> ColorScheme? {
+        name == "light" ? .light : .dark
     }
 
     static func accentColor(named name: String) -> Color {
@@ -39,6 +46,7 @@ struct PokeClawMacApp: App {
 struct PokeClawSettingsView: View {
     @ObservedObject var model: PokeClawConnectionModel
     @AppStorage("pokeclaw.accentColor") private var accentColorName = "blue"
+    @AppStorage("pokeclaw.appearanceMode") private var appearanceMode = "dark"
     @State private var selectedPane: SettingsPane = .connection
 
     private enum SettingsPane: String, CaseIterable, Identifiable {
@@ -99,13 +107,26 @@ struct PokeClawSettingsView: View {
 
     private var appearancePane: some View {
         VStack(alignment: .leading, spacing: 14) {
+            Text("Theme")
+                .font(.headline)
+            Text("Toggle between dark and light mode for the Mac app.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Picker("Appearance", selection: $appearanceMode) {
+                Text("Dark").tag("dark")
+                Text("Light").tag("light")
+            }
+            .pickerStyle(.segmented)
+
+            Divider()
+
             Text("Accent color")
                 .font(.headline)
             Text("Changes apply immediately to the app tint and controls.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Picker("Accent color", selection: $accentColorName) {
-                ForEach(accentOptions, id: \.name) { option in
+                ForEach(accentOptions, id: .name) { option in
                     HStack(spacing: 10) {
                         Circle()
                             .fill(option.color)
@@ -121,6 +142,7 @@ struct PokeClawSettingsView: View {
     }
 
     private var connectionPane: some View {
+
         VStack(alignment: .leading, spacing: 14) {
             Text("Server connection")
                 .font(.headline)

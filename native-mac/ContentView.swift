@@ -7,6 +7,10 @@ struct ContentView: View {
     @State private var commandToast: PokeClawConnectionModel.CustomCommandBanner? = nil
     @FocusState private var customCommandFocused: Bool
     @AppStorage("pokeclaw.favoriteCommands") private var favoriteCommandsData = "[]"
+    @AppStorage("pokeclaw.selectedPage") private var selectedPage = "dashboard"
+    @State private var statsSnapshot: StatsSnapshot? = nil
+    @State private var statsStatus: String = "Loading stats…"
+    @State private var isLoadingStats: Bool = false
 
     private struct QuickAction: Identifiable {
         let id = UUID()
@@ -51,6 +55,21 @@ struct ContentView: View {
             try container.encode(command, forKey: .command)
             try container.encode(colorName, forKey: .colorName)
         }
+    }
+
+    private struct StatsSnapshot: Equatable {
+        struct TopCommand: Identifiable, Equatable {
+            let id = UUID()
+            let command: String
+            let count: Int
+        }
+
+        var commandsToday: Int = 0
+        var uptime: String = "—"
+        var uptimeSeconds: Int = 0
+        var topCommands: [TopCommand] = []
+        var startedAt: String = "—"
+        var updatedAt: String = "—"
     }
 
     private static let favoriteColorOptions: [(name: String, label: String, color: Color)] = [
@@ -161,19 +180,25 @@ struct ContentView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
-                connectionBox
-                quickActionsBox
-                searchTextBox
-                customCommandBox
-                commandHistoryBox
-                favoritesBox
-                systemMonitoringBox
-                activitySearchBar
-                consoleBox
-                toolCallsBox
-                logsBox
-                roadmapBox
-                directionBox
+                pageSwitcher
+                if selectedPage == "stats" {
+                    statsOverviewBox
+                    systemMonitoringBox
+                } else {
+                    connectionBox
+                    quickActionsBox
+                    searchTextBox
+                    customCommandBox
+                    commandHistoryBox
+                    favoritesBox
+                    systemMonitoringBox
+                    activitySearchBar
+                    consoleBox
+                    toolCallsBox
+                    logsBox
+                    roadmapBox
+                    directionBox
+                }
                 footerActions
             }
             .padding(20)
@@ -190,14 +215,9 @@ struct ContentView: View {
         .task {
             await model.startAutoRefresh()
         }
-        .onChange(of: model.customCommandBanner) { banner in
-            guard let banner else { return }
-            commandToast = banner
-            Task {
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                if commandToast == banner {
-                    commandToast = nil
-                }
+        .task(id: selectedPage) {
+            if selectedPage == "stats" {
+                await refreshStats()
             }
         }
         .overlay(alignment: .bottomTrailing) {
@@ -987,6 +1007,133 @@ struct ContentView: View {
             }
             .font(.callout)
         }
+    }
+
+    private var pageSwitcher: some View {
+        Picker("Page", selection: $selectedPage) {
+            Text("Dashboard").tag("dashboard")
+            Text("Stats").tag("stats")
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private var statsOverviewBox: some View {
+        GroupBox("Stats Overview") {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Commands today")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(statsSnapshot?.commandsToday.description ?? "—")
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Uptime")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(statsSnapshot?.uptime ?? "—")
+                            .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    }
+                }
+
+                Divider()
+
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Top 3 most-used commands")
+                            .font(.callout.weight(.medium))
+                        if let topCommands = statsSnapshot?.topCommands, !topCommands.isEmpty {
+                            ForEach(topCommands) { item in
+                                HStack {
+                                    Text("/\(item.command)")
+                                        .font(.system(.callout, design: .monospaced))
+                                    Spacer()
+                                    Text("\(item.count)")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 10)
+                                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
+                        } else {
+                            Text(statsStatus)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 10) {
+                        Button(isLoadingStats ? "Refreshing…" : "Refresh stats") {
+                            Task { await refreshStats() }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        Text(statsSnapshot?.updatedAt ?? "Waiting for stats")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .font(.callout)
+        }
+    }
+
+    private func statsURL() -> URL? {
+        URL(string: "\(model.serverBaseURL)/stats")
+    }
+
+    private func formatUptime(seconds: Int) -> String {
+        let days = seconds / 86_400
+        let hours = (seconds % 86_400) / 3_600
+        let minutes = (seconds % 3_600) / 60
+        let remaining = seconds % 60
+        var parts: [String] = []
+        if days > 0 { parts.append("\(days)d") }
+        if hours > 0 || days > 0 { parts.append("\(hours)h") }
+        if minutes > 0 || hours > 0 || days > 0 { parts.append("\(minutes)m") }
+        parts.append("\(remaining)s")
+        return parts.joined(separator: " ")
+    }
+
+    private func refreshStats() async {
+        guard let url = statsURL() else {
+            statsStatus = "Invalid stats endpoint"
+            return
+        }
+
+        isLoadingStats = true
+        defer { isLoadingStats = false }
+
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let decoded = try JSONDecoder().decode(StatsPayload.self, from: data)
+            let topCommands = (decoded.topCommands ?? []).prefix(3).map { StatsSnapshot.TopCommand(command: $0.command, count: $0.count) }
+            let uptimeSeconds = Int(decoded.uptimeSeconds ?? 0)
+            statsSnapshot = StatsSnapshot(
+                commandsToday: decoded.commandsToday ?? 0,
+                uptime: decoded.uptime ?? formatUptime(seconds: uptimeSeconds),
+                uptimeSeconds: uptimeSeconds,
+                topCommands: topCommands,
+                startedAt: decoded.startedAt ?? "—",
+                updatedAt: Date().formatted(date: .omitted, time: .shortened)
+            )
+            statsStatus = topCommands.isEmpty ? "No commands recorded yet." : "Stats updated."
+        } catch {
+            statsStatus = "Could not load stats: \(error.localizedDescription)"
+        }
+    }
+
+    private struct StatsPayload: Decodable {
+        struct TopCommand: Decodable {
+            let command: String
+            let count: Int
+        }
+
+        let uptimeSeconds: Double?
+        let uptime: String?
+        let commandsToday: Int?
+        let topCommands: [TopCommand]?
+        let startedAt: String?
     }
 
     private var footerActions: some View {

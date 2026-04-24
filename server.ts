@@ -46,6 +46,10 @@ const RECENT_LOG_LIMIT = 250;
 const recentLogs: string[] = [];
 const recentConsole: { stream: "stdout" | "stderr"; line: string }[] = [];
 const recentToolCalls: { timestamp: string; tool: string; preview: string }[] = [];
+const startedAt = Date.now();
+const toolCounts = new Map<string, number>();
+let commandsToday = 0;
+let activeDayKey = new Date().toISOString().slice(0, 10);
 
 function timestamp() {
   return new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -99,6 +103,13 @@ function logToolUse(tool: string, args: Record<string, unknown>) {
     .join("  ");
   const entry = `TOOL ${tool}${preview ? ` :: ${preview}` : ""}`;
   const stamp = timestamp();
+  const dayKey = new Date().toISOString().slice(0, 10);
+  if (dayKey !== activeDayKey) {
+    activeDayKey = dayKey;
+    commandsToday = 0;
+  }
+  commandsToday += 1;
+  toolCounts.set(tool, (toolCounts.get(tool) ?? 0) + 1);
   pushRecentLog(`[${stamp}] ${entry}`);
   pushRecentToolCall({ timestamp: stamp, tool, preview: preview || "(no args)" });
   emitConsole("stdout", `Poke is using tool: ${tool}`);
@@ -281,6 +292,36 @@ function toolGetEnv(args: Record<string, unknown>): string {
   return val !== undefined ? val : "(not set)";
 }
 
+function formatDuration(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  const parts: string[] = [];
+  if (days) parts.push(`${days}d`);
+  if (hours || days) parts.push(`${hours}h`);
+  if (minutes || hours || days) parts.push(`${minutes}m`);
+  parts.push(`${remainder}s`);
+  return parts.join(' ');
+}
+
+function statsPayload() {
+  const topCommands = Array.from(toolCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([command, count]) => ({ command, count }));
+
+  return {
+    status: 'ok',
+    uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
+    uptime: formatDuration((Date.now() - startedAt) / 1000),
+    commandsToday,
+    topCommands,
+    startedAt: new Date(startedAt).toISOString(),
+  };
+}
+
 const TOOLS = [
   { name: "read_file", description: "Read the full contents of a file on the local Mac.", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
   { name: "write_file", description: "Write (create or overwrite) a file on the local Mac.", inputSchema: { type: "object", properties: { path: { type: "string" }, content: { type: "string" } }, required: ["path", "content"] } },
@@ -369,6 +410,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   if (req.method === "GET" && url.pathname === "/logs") {
     json(res, 200, { lines: recentLogs.slice(-100) });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/stats") {
+    json(res, 200, statsPayload());
     return;
   }
 
