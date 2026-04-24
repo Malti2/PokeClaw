@@ -46,7 +46,6 @@ const RECENT_LOG_LIMIT = 250;
 const recentLogs: string[] = [];
 const recentConsole: { stream: "stdout" | "stderr"; line: string }[] = [];
 const recentToolCalls: { timestamp: string; tool: string; preview: string }[] = [];
-const recentToolCalls: { timestamp: string; tool: string; preview: string }[] = [];
 
 function timestamp() {
   return new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
