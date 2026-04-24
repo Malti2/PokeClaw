@@ -4,7 +4,7 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var model: PokeClawConnectionModel
     @State private var activitySearchText: String = ""
-    @AppStorage("pokeclaw.favoriteCommands()") private var favoriteCommandsData = "[]"
+    @AppStorage("pokeclaw.favoriteCommands") private var favoriteCommandsData = "[]"
 
     private struct QuickAction: Identifiable {
         let id = UUID()
