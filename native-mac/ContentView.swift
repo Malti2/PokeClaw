@@ -323,6 +323,7 @@ struct ContentView: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.large)
+                            .keyboardShortcut(.defaultAction)
                             .disabled(model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                             Button("Pin to Favorites") {
