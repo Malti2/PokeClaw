@@ -4,6 +4,7 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var model: PokeClawConnectionModel
     @State private var activitySearchText: String = ""
+    @AppStorage("pokeclaw.favoriteCommands") private var favoriteCommandsData = "[]"
 
     private struct QuickAction: Identifiable {
         let id = UUID()
@@ -12,6 +13,36 @@ struct ContentView: View {
         let symbol: String
         let tint: Color
         let action: () -> Void
+    }
+
+    private struct FavoriteCommand: Identifiable, Codable, Hashable {
+        let id: UUID
+        var title: String
+        var command: String
+    }
+
+    private enum ConsoleSeverity: String {
+        case info
+        case warning
+        case error
+
+        var label: String {
+            switch self {
+            case .info: return "INFO"
+            case .warning: return "WARN"
+            case .error: return "ERROR"
+            }
+        }
+
+        var tint: Color {
+            switch self {
+            case .info: return .blue
+            case .warning: return .orange
+            case .error: return .red
+            }
+        }
+
+        var background: Color { tint.opacity(0.14) }
     }
 
     private var quickActions: [QuickAction] {
@@ -59,6 +90,11 @@ struct ContentView: View {
         [GridItem(.adaptive(minimum: 220), spacing: 12)]
     }
 
+    private var favoriteCommands: [FavoriteCommand] {
+        get { Self.decodeFavorites(favoriteCommandsData) }
+        nonmutating set { favoriteCommandsData = Self.encodeFavorites(newValue) }
+    }
+
     private var filteredLogLines: [String] {
         guard !activitySearchText.isEmpty else { return model.logLines }
         return model.logLines.filter { $0.localizedCaseInsensitiveContains(activitySearchText) }
@@ -81,6 +117,7 @@ struct ContentView: View {
                 quickActionsBox
                 searchTextBox
                 customCommandBox
+                favoritesBox
                 systemMonitoringBox
                 activitySearchBar
                 consoleBox
@@ -258,12 +295,20 @@ struct ContentView: View {
                             .onSubmit {
                                 Task { await model.runCustomCommand() }
                             }
-                        Button(model.isRunningCustomCommand ? "Running…" : "Run") {
-                            Task { await model.runCustomCommand() }
+                        VStack(alignment: .leading, spacing: 8) {
+                            Button(model.isRunningCustomCommand ? "Running…" : "Run") {
+                                Task { await model.runCustomCommand() }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.large)
+                            .disabled(model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                            Button("Pin to Favorites") {
+                                pinCurrentCommand()
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .disabled(model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
 
@@ -298,6 +343,64 @@ struct ContentView: View {
             .font(.callout)
         }
     }
+
+    private var favoritesBox: some View {
+        GroupBox("Favorites") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Pinned commands")
+                            .font(.callout.weight(.medium))
+                        Text("Save commands you run often and launch them again quickly.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text("\(favoriteCommands.count) saved")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if favoriteCommands.isEmpty {
+                    Text("Pin the current command from the custom command box to build your shortcuts list.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(favoriteCommands) { favorite in
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(alignment: .top) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(favorite.title)
+                                            .fontWeight(.semibold)
+                                        Text(favorite.command)
+                                            .font(.system(.caption, design: .monospaced))
+                                            .foregroundStyle(.secondary)
+                                            .textSelection(.enabled)
+                                            .lineLimit(2)
+                                    }
+                                    Spacer()
+                                    Button("Run") {
+                                        runFavorite(favorite)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    Button("Remove") {
+                                        removeFavorite(favorite)
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                            }
+                            .padding(12)
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.08), lineWidth: 1))
+                        }
+                    }
+                }
+            }
+            .font(.callout)
+        }
+    }
+
     private var systemMonitoringBox: some View {
         GroupBox("System Monitoring") {
             VStack(alignment: .leading, spacing: 16) {
@@ -402,9 +505,9 @@ struct ContentView: View {
 
     private var consoleBox: some View {
         GroupBox("Console") {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("stdout / stderr")
                             .font(.callout.weight(.medium))
                         Text("Live output from the Bun server")
@@ -418,29 +521,69 @@ struct ContentView: View {
                     .buttonStyle(.bordered)
                 }
 
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 6) {
-                        ForEach(model.consoleLines) { line in
-                            HStack(alignment: .top, spacing: 8) {
-                                Text(line.stream.uppercased())
-                                    .font(.system(.caption2, design: .monospaced))
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(line.stream == "stderr" ? Color.red.opacity(0.15) : Color.blue.opacity(0.12), in: Capsule())
-                                Text(line.line)
-                                    .font(.system(.caption, design: .monospaced))
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            ForEach(model.consoleLines) { line in
+                                consoleLineRow(line)
+                                    .id(line.id)
                             }
-                            .padding(.vertical, 2)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 4)
+                    }
+                    .frame(minHeight: 220)
+                    .onChange(of: model.consoleLines.count) { _ in
+                        guard let last = model.consoleLines.last else { return }
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            proxy.scrollTo(last.id, anchor: .bottom)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 4)
+                    .onAppear {
+                        if let last = model.consoleLines.last {
+                            proxy.scrollTo(last.id, anchor: .bottom)
+                        }
+                    }
                 }
-                .frame(minHeight: 180)
             }
         }
+    }
+
+    private func consoleLineRow(_ line: PokeClawConnectionModel.ConsoleLine) -> some View {
+        let severity = consoleSeverity(for: line)
+        return HStack(alignment: .top, spacing: 10) {
+            Text(severity.label)
+                .font(.system(.caption2, design: .monospaced).weight(.semibold))
+                .foregroundStyle(severity.tint)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(severity.background, in: Capsule())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(line.line)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(severity == .error ? .primary : .primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(line.stream == "stderr" ? "stderr" : "stdout")
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(severity.tint.opacity(0.12), lineWidth: 1))
+    }
+
+    private func consoleSeverity(for line: PokeClawConnectionModel.ConsoleLine) -> ConsoleSeverity {
+        let normalized = "\(line.stream) \(line.line)".lowercased()
+        if line.stream == "stderr" || normalized.contains("error") || normalized.contains("fatal") {
+            return .error
+        }
+        if normalized.contains("warn") || normalized.contains("warning") {
+            return .warning
+        }
+        return .info
     }
 
     private var toolCallsBox: some View {
@@ -582,6 +725,42 @@ struct ContentView: View {
             }
             .font(.callout)
         }
+    }
+
+    private func pinCurrentCommand() {
+        let command = model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !command.isEmpty else { return }
+        var updated = favoriteCommands
+        guard !updated.contains(where: { $0.command == command }) else { return }
+        updated.insert(FavoriteCommand(id: UUID(), title: favoriteTitle(for: command), command: command), at: 0)
+        favoriteCommands = updated
+        model.statusMessage = "Pinned command to Favorites"
+        model.lastAction = "Pinned favorite command"
+    }
+
+    private func removeFavorite(_ favorite: FavoriteCommand) {
+        favoriteCommands = favoriteCommands.filter { $0.id != favorite.id }
+        model.lastAction = "Removed favorite command"
+    }
+
+    private func runFavorite(_ favorite: FavoriteCommand) {
+        model.customCommand = favorite.command
+        Task { await model.runCustomCommand() }
+    }
+
+    private func favoriteTitle(for command: String) -> String {
+        let singleLine = command.components(separatedBy: .newlines).first ?? command
+        return singleLine.count > 36 ? String(singleLine.prefix(36)) + "…" : singleLine
+    }
+
+    private static func decodeFavorites(_ string: String) -> [FavoriteCommand] {
+        guard let data = string.data(using: .utf8), !string.isEmpty else { return [] }
+        return (try? JSONDecoder().decode([FavoriteCommand].self, from: data)) ?? []
+    }
+
+    private static func encodeFavorites(_ favorites: [FavoriteCommand]) -> String {
+        guard let data = try? JSONEncoder().encode(favorites), let string = String(data: data, encoding: .utf8) else { return "[]" }
+        return string
     }
 
     private var footerActions: some View {
