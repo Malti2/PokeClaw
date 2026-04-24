@@ -4,6 +4,8 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var model: PokeClawConnectionModel
     @State private var activitySearchText: String = ""
+    @State private var commandToast: String? = nil
+    @FocusState private var customCommandFocused: Bool
     @AppStorage("pokeclaw.favoriteCommands") private var favoriteCommandsData = "[]"
 
     private struct QuickAction: Identifiable {
@@ -330,6 +332,7 @@ struct ContentView: View {
                                 pinCurrentCommand()
                             }
                             .buttonStyle(.bordered)
+                            .keyboardShortcut("k", modifiers: [.command])
                             .disabled(model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                     }
