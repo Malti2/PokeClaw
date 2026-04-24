@@ -59,11 +59,14 @@ struct ContentView: View {
                             model.statusMessage = "Searching \(model.searchRoot) for \(model.searchQuery)"
                         }
                         .buttonStyle(.bordered)
-                        Button("Copy MCP URL") {
-                            model.lastAction = "Copied MCP endpoint"
-                            model.statusMessage = model.localEndpoint
+                        if let mcpURL = URL(string: model.localEndpoint) {
+                            Link("Open MCP endpoint", destination: mcpURL)
+                                .buttonStyle(.bordered)
                         }
-                        .buttonStyle(.bordered)
+                        if let healthURL = URL(string: model.healthEndpoint) {
+                            Link("Open health check", destination: healthURL)
+                                .buttonStyle(.bordered)
+                        }
                     }
                 }
                 .font(.callout)
