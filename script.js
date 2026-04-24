@@ -1,26 +1,23 @@
 const root = document.documentElement;
 const toggle = document.getElementById('themeToggle');
-const toggleIcon = toggle?.querySelector('.theme-toggle-icon');
-const toggleText = toggle?.querySelector('.theme-toggle-text');
-const storageKey = 'pokeclaw-theme';
+const label = toggle?.querySelector('.theme-toggle-label');
+const dot = toggle?.querySelector('.theme-toggle-dot');
+const key = 'pokeclaw-theme';
 
 const systemTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-const savedTheme = localStorage.getItem(storageKey);
-const initialTheme = savedTheme || systemTheme;
+const saved = localStorage.getItem(key);
 
-function applyTheme(theme) {
+function setTheme(theme) {
   root.setAttribute('data-theme', theme);
-  localStorage.setItem(storageKey, theme);
-
-  const isLight = theme === 'light';
-  if (toggleIcon) toggleIcon.textContent = isLight ? '☀' : '☾';
-  if (toggleText) toggleText.textContent = isLight ? 'Light' : 'Dark';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isLight ? '#f5f7fb' : '#0b1020');
+  localStorage.setItem(key, theme);
+  const light = theme === 'light';
+  if (label) label.textContent = light ? 'Light' : 'Dark';
+  if (dot) dot.style.opacity = light ? '0.6' : '0.75';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#f7f7f2' : '#0b0d12');
 }
 
-applyTheme(initialTheme);
+setTheme(saved || systemTheme);
 
 toggle?.addEventListener('click', () => {
-  const nextTheme = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-  applyTheme(nextTheme);
+  setTheme(root.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
 });
