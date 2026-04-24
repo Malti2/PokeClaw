@@ -377,6 +377,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/tool-calls") {
+    json(res, 200, { calls: recentToolCalls.slice(-25) });
+    return;
+  }
+
   if (url.pathname === "/mcp") {
     if (!isAuthorised(req, url)) {
       json(res, 401, { error: "Unauthorized: supply ?token= or Authorization: Bearer header" });
