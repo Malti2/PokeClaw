@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var model: PokeClawConnectionModel
+    @State private var activitySearchText: String = ""
 
     private struct QuickAction: Identifiable {
         let id = UUID()
@@ -58,6 +59,20 @@ struct ContentView: View {
         [GridItem(.adaptive(minimum: 220), spacing: 12)]
     }
 
+    private var filteredLogLines: [String] {
+        guard !activitySearchText.isEmpty else { return model.logLines }
+        return model.logLines.filter { $0.localizedCaseInsensitiveContains(activitySearchText) }
+    }
+
+    private var filteredToolCalls: [PokeClawConnectionModel.ToolCallEntry] {
+        guard !activitySearchText.isEmpty else { return model.toolCalls }
+        return model.toolCalls.filter { call in
+            call.timestamp.localizedCaseInsensitiveContains(activitySearchText) ||
+            call.tool.localizedCaseInsensitiveContains(activitySearchText) ||
+            call.preview.localizedCaseInsensitiveContains(activitySearchText)
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -66,6 +81,7 @@ struct ContentView: View {
                 quickActionsBox
                 searchTextBox
                 systemMonitoringBox
+                activitySearchBar
                 consoleBox
                 toolCallsBox
                 logsBox
@@ -214,34 +230,104 @@ struct ContentView: View {
 
     private var systemMonitoringBox: some View {
         GroupBox("System Monitoring") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 12) {
-                    metricCard(title: "CPU", value: model.systemCpuUsage, subtitle: "Updated (model.systemMonitoringUpdated)", tint: .blue)
-                    metricCard(title: "RAM", value: model.systemMemoryUsage, subtitle: "Updated (model.systemMonitoringUpdated)", tint: .purple)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Mac resource snapshot")
+                            .font(.headline)
+                        Text("Live CPU and RAM usage from the local system_info tool")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Label("Updated (model.systemMonitoringUpdated)", systemImage: "clock")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.thinMaterial, in: Capsule())
                 }
+
+                HStack(spacing: 12) {
+                    metricCard(title: "CPU", value: model.systemCpuUsage, fraction: metricFraction(model.systemCpuUsage), subtitle: "Current processor load", tint: .blue)
+                    metricCard(title: "RAM", value: model.systemMemoryUsage, fraction: metricFraction(model.systemMemoryUsage), subtitle: "Memory pressure snapshot", tint: .purple)
+                }
+
                 Text(model.systemInfoOutput)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
-                    .lineLimit(4)
+                    .lineLimit(5)
             }
+            .padding(2)
         }
     }
 
-    private func metricCard(title: String, value: String, subtitle: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.system(size: 28, weight: .semibold, design: .rounded))
+    private func metricFraction(_ value: String) -> Double? {
+        let cleaned = value.trimmingCharacters(in: CharacterSet(charactersIn: "% "))
+        guard let percent = Double(cleaned) else { return nil }
+        return max(0, min(percent / 100, 1))
+    }
+
+    private func metricCard(title: String, value: String, fraction: Double?, subtitle: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(value)
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .foregroundStyle(tint)
+            }
+
+            ProgressView(value: fraction ?? 0)
+                .tint(tint)
+                .scaleEffect(y: 1.15, anchor: .center)
+
             Text(subtitle)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
-        .padding(12)
-        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
+        .padding(14)
+        .background(
+            LinearGradient(
+                colors: [tint.opacity(0.18), Color(nsColor: .controlBackgroundColor).opacity(0.6)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(tint.opacity(0.18), lineWidth: 1)
+        )
+        .shadow(color: tint.opacity(0.12), radius: 10, y: 4)
+    }
+
+    private var activitySearchBar: some View {
+        GroupBox("Activity Search") {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Search logs and tool calls", text: $activitySearchText)
+                    .textFieldStyle(.plain)
+                if !activitySearchText.isEmpty {
+                    Button("Clear") {
+                        activitySearchText = ""
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Spacer()
+                Text("(filteredLogLines.count) logs · (filteredToolCalls.count) calls")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
     }
 
     private var consoleBox: some View {
@@ -300,13 +386,13 @@ struct ContentView: View {
                     .buttonStyle(.bordered)
                 }
 
-                if model.toolCalls.isEmpty {
-                    Text("No tool calls yet.")
+                if filteredToolCalls.isEmpty {
+                    Text(activitySearchText.isEmpty ? "No tool calls yet." : "No matching tool calls.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 } else {
                     LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(model.toolCalls) { call in
+                        ForEach(filteredToolCalls) { call in
                             VStack(alignment: .leading, spacing: 3) {
                                 HStack {
                                     Text(call.timestamp)
@@ -373,19 +459,26 @@ struct ContentView: View {
                     .buttonStyle(.bordered)
                 }
 
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(Array(model.logLines.enumerated()), id: \.offset) { _, line in
-                            Text(line)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(.primary)
-                                .textSelection(.enabled)
+                if filteredLogLines.isEmpty {
+                    Text(activitySearchText.isEmpty ? "No log lines yet." : "No matching log lines.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            ForEach(Array(filteredLogLines.enumerated()), id: \.offset) { _, line in
+                                Text(line)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(.primary)
+                                    .textSelection(.enabled)
+                            }
                         }
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
+                    .frame(minHeight: 140)
                 }
-                .frame(minHeight: 140)
             }
         }
     }
