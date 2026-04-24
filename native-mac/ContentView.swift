@@ -144,6 +144,24 @@ struct ContentView: View {
         .task {
             await model.startAutoRefresh()
         }
+        .onChange(of: model.customCommandBanner) { banner in
+            guard let banner else { return }
+            commandToast = banner
+            Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if commandToast == banner {
+                    commandToast = nil
+                }
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if let commandToast {
+                toastView(commandToast)
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 20)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
     }
 
     private var header: some View {
@@ -295,6 +313,7 @@ struct ContentView: View {
                     HStack(alignment: .top, spacing: 12) {
                         TextField("e.g. ls -la /Applications", text: $model.customCommand)
                             .textFieldStyle(.roundedBorder)
+                            .focused($customCommandFocused)
                             .onSubmit {
                                 Task { await model.runCustomCommand() }
                             }
@@ -756,6 +775,22 @@ struct ContentView: View {
         return singleLine.count > 36 ? String(singleLine.prefix(36)) + "…" : singleLine
     }
 
+    private func toastView(_ message: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+            Text(message)
+                .font(.callout.weight(.medium))
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: 280)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.12), lineWidth: 1))
+        .shadow(radius: 10, y: 4)
+    }
+
     private static func decodeFavorites(_ string: String) -> [FavoriteCommand] {
         guard let data = string.data(using: .utf8), !string.isEmpty else { return [] }
         return (try? JSONDecoder().decode([FavoriteCommand].self, from: data)) ?? []
@@ -777,6 +812,7 @@ struct ContentView: View {
                 Task { await model.refreshServerStatus() }
             }
             .buttonStyle(.bordered)
+            .keyboardShortcut("r", modifiers: [.command])
             Spacer()
         }
     }
