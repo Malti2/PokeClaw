@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -6,6 +7,10 @@ struct PokeClawMacApp: App {
     @StateObject private var model = PokeClawConnectionModel()
     @AppStorage("pokeclaw.accentColor") private var accentColorName = "blue"
     @AppStorage("pokeclaw.appearanceMode") private var appearanceMode = "dark"
+
+    init() {
+        NSApplication.shared.setActivationPolicy(.accessory)
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -21,6 +26,14 @@ struct PokeClawMacApp: App {
                 .preferredColorScheme(Self.colorScheme(named: appearanceMode))
         }
         .tint(Self.accentColor(named: accentColorName))
+
+        MenuBarExtra {
+            PokeClawMenuBarPopoverView(model: model)
+                .preferredColorScheme(Self.colorScheme(named: appearanceMode))
+        } label: {
+            Image(systemName: "pawprint.fill")
+        }
+        .menuBarExtraStyle(.window)
     }
 
     static func colorScheme(named name: String) -> ColorScheme? {
@@ -197,6 +210,130 @@ struct PokeClawSettingsView: View {
             .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct PokeClawMenuBarPopoverView: View {
+    @ObservedObject var model: PokeClawConnectionModel
+    @State private var isRunningCommand: Bool = false
+
+    private var lastLogLine: String {
+        model.logLines.last ?? "No log lines yet."
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("PokeClaw")
+                        .font(.headline)
+                    Text(model.statusMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Open") {
+                    NSApplication.shared.activate(ignoringOtherApps: true)
+                    NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)
+                }
+                .buttonStyle(.bordered)
+
+                Button("Refresh") {
+                    Task {
+                        await model.refreshServerStatus()
+                        await model.refreshLogs()
+                    }
+                }
+                .buttonStyle(.bordered)
+            }
+
+            GroupBox("Server Status") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(model.isConnected ? .green : .orange)
+                            .frame(width: 8, height: 8)
+                        Text(model.serverStatus)
+                            .font(.callout.weight(.medium))
+                    }
+                    Text(model.healthEndpoint)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                    Text(model.lastStatusRefresh == "Never" ? "No status refresh yet." : "Last refresh: \(model.lastStatusRefresh)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            GroupBox("Custom Command") {
+                VStack(alignment: .leading, spacing: 10) {
+                    TextField("Run a shell command", text: $model.customCommand)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { runCommand() }
+
+                    HStack {
+                        Button(isRunningCommand ? "Running…" : "Run") {
+                            runCommand()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isRunningCommand)
+
+                        Spacer()
+
+                        Text(model.customCommandOutput)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .truncationMode(.tail)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            GroupBox("Latest Log Line") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(lastLogLine)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.primary)
+                        .textSelection(.enabled)
+                        .lineLimit(4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    HStack {
+                        Text("Latest from /logs")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Refresh logs") {
+                            Task { await model.refreshLogs() }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(16)
+        .frame(width: 360)
+        .task {
+            await model.refreshServerStatus()
+            await model.refreshLogs()
+        }
+    }
+
+    private func runCommand() {
+        let trimmed = model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        model.customCommand = trimmed
+        isRunningCommand = true
+        Task {
+            await model.runCustomCommand()
+            await MainActor.run {
+                isRunningCommand = false
+            }
+        }
     }
 }
 
