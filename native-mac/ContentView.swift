@@ -21,7 +21,50 @@ struct ContentView: View {
         let id: UUID
         var title: String
         var command: String
+        var colorName: String
+
+        init(id: UUID = UUID(), title: String, command: String, colorName: String = "blue") {
+            self.id = id
+            self.title = title
+            self.command = command
+            self.colorName = colorName
+        }
+
+        var color: Color { ContentView.favoriteColor(named: colorName) }
+
+        enum CodingKeys: String, CodingKey {
+            case id, title, command, colorName
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(UUID.self, forKey: .id)
+            title = try container.decode(String.self, forKey: .title)
+            command = try container.decode(String.self, forKey: .command)
+            colorName = try container.decodeIfPresent(String.self, forKey: .colorName) ?? "blue"
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(id, forKey: .id)
+            try container.encode(title, forKey: .title)
+            try container.encode(command, forKey: .command)
+            try container.encode(colorName, forKey: .colorName)
+        }
     }
+
+    private static let favoriteColorOptions: [(name: String, label: String, color: Color)] = [
+        ("blue", "Blue", .blue),
+        ("purple", "Purple", .purple),
+        ("pink", "Pink", .pink),
+        ("red", "Red", .red),
+        ("orange", "Orange", .orange),
+        ("yellow", "Yellow", .yellow),
+        ("green", "Green", .green),
+        ("mint", "Mint", .mint),
+        ("teal", "Teal", .teal),
+        ("indigo", "Indigo", .indigo)
+    ]
 
     private enum ConsoleSeverity: String {
         case info
@@ -451,10 +494,15 @@ struct ContentView: View {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         ForEach(favoriteCommands()) { favorite in
                             VStack(alignment: .leading, spacing: 8) {
-                                HStack(alignment: .top) {
+                                HStack(alignment: .top, spacing: 12) {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(favorite.title)
-                                            .fontWeight(.semibold)
+                                        HStack(spacing: 8) {
+                                            Circle()
+                                                .fill(favorite.color)
+                                                .frame(width: 10, height: 10)
+                                            Text(favorite.title)
+                                                .fontWeight(.semibold)
+                                        }
                                         Text(favorite.command)
                                             .font(.system(.caption, design: .monospaced))
                                             .foregroundStyle(.secondary)
@@ -462,395 +510,37 @@ struct ContentView: View {
                                             .lineLimit(2)
                                     }
                                     Spacer()
-                                    Button("Run") {
-                                        runFavorite(favorite)
+                                    VStack(alignment: .trailing, spacing: 8) {
+                                        Menu {
+                                            ForEach(Self.favoriteColorOptions, id: \.name) { option in
+                                                Button {
+                                                    updateFavoriteColor(favorite, to: option.name)
+                                                } label: {
+                                                    Label(option.label, systemImage: option.name == favorite.colorName ? "checkmark.circle.fill" : "circle")
+                                                }
+                                            }
+                                        } label: {
+                                            Label("Pin Color", systemImage: "paintpalette")
+                                        }
+                                        .buttonStyle(.bordered)
+
+                                        HStack(spacing: 8) {
+                                            Button("Run") {
+                                                runFavorite(favorite)
+                                            }
+                                            .buttonStyle(.borderedProminent)
+                                            Button("Remove") {
+                                                removeFavorite(favorite)
+                                            }
+                                            .buttonStyle(.bordered)
+                                        }
                                     }
-                                    .buttonStyle(.borderedProminent)
-                                    Button("Remove") {
-                                        removeFavorite(favorite)
-                                    }
-                                    .buttonStyle(.bordered)
                                 }
                             }
                             .padding(12)
-                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.08), lineWidth: 1))
+                            .background(LinearGradient(colors: [favorite.color.opacity(0.18), Color(nsColor: .controlBackgroundColor).opacity(0.55)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(favorite.color.opacity(0.20), lineWidth: 1))
                         }
-                    }
-                }
-            }
-            .font(.callout)
-        }
-    }
-
-    private var systemMonitoringBox: some View {
-        GroupBox("System Monitoring") {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Mac resource snapshot")
-                            .font(.headline)
-                        Text("Live CPU and RAM usage from the local system_info tool")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Label("Updated \(model.systemMonitoringUpdated)", systemImage: "clock")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.thinMaterial, in: Capsule())
-                }
-
-                HStack(spacing: 12) {
-                    metricCard(title: "CPU", value: model.systemCpuUsage, fraction: metricFraction(model.systemCpuUsage), history: model.systemCpuHistory, subtitle: "Current processor load", tint: .blue)
-                    metricCard(title: "RAM", value: model.systemMemoryUsage, fraction: metricFraction(model.systemMemoryUsage), history: model.systemMemoryHistory, subtitle: "Memory pressure snapshot", tint: .purple)
-                }
-
-                Text(model.systemInfoOutput)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-                    .lineLimit(5)
-            }
-            .padding(2)
-        }
-    }
-
-    private func metricFraction(_ value: String) -> Double? {
-        let cleaned = value.trimmingCharacters(in: CharacterSet(charactersIn: "% "))
-        guard let percent = Double(cleaned) else { return nil }
-        return max(0, min(percent / 100, 1))
-    }
-
-    private func metricCard(title: String, value: String, fraction: Double?, history: [Double], subtitle: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(value)
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundStyle(tint)
-            }
-
-            sparkline(values: history, tint: tint)
-                .frame(height: 28)
-
-            ProgressView(value: fraction ?? 0)
-                .tint(tint)
-                .scaleEffect(y: 1.15, anchor: .center)
-
-            Text(subtitle)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, minHeight: 140, alignment: .leading)
-        .padding(14)
-        .background(
-            LinearGradient(
-                colors: [tint.opacity(0.18), Color(nsColor: .controlBackgroundColor).opacity(0.6)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(tint.opacity(0.18), lineWidth: 1)
-        )
-        .shadow(color: tint.opacity(0.12), radius: 10, y: 4)
-    }
-
-    private func sparkline(values: [Double], tint: Color) -> some View {
-        GeometryReader { proxy in
-            let points = sparklinePoints(values, size: proxy.size)
-            ZStack {
-                if points.count > 1 {
-                    Path { path in
-                        path.move(to: points[0])
-                        for point in points.dropFirst() {
-                            path.addLine(to: point)
-                        }
-                    }
-                    .stroke(tint, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-
-                    Path { path in
-                        path.move(to: CGPoint(x: points[0].x, y: proxy.size.height))
-                        for point in points {
-                            path.addLine(to: point)
-                        }
-                        path.addLine(to: CGPoint(x: points.last?.x ?? proxy.size.width, y: proxy.size.height))
-                        path.closeSubpath()
-                    }
-                    .fill(LinearGradient(colors: [tint.opacity(0.30), tint.opacity(0.02)], startPoint: .top, endPoint: .bottom))
-                } else if let point = points.first {
-                    Circle()
-                        .fill(tint)
-                        .frame(width: 6, height: 6)
-                        .position(point)
-                }
-            }
-        }
-    }
-
-    private func sparklinePoints(_ values: [Double], size: CGSize) -> [CGPoint] {
-        guard !values.isEmpty, size.width > 0, size.height > 0 else { return [] }
-        let minValue = values.min() ?? 0
-        let maxValue = values.max() ?? 1
-        let range = max(maxValue - minValue, 1)
-        let step = values.count > 1 ? size.width / CGFloat(values.count - 1) : 0
-        return values.enumerated().map { index, value in
-            let normalized = (value - minValue) / range
-            let x = CGFloat(index) * step
-            let y = size.height - CGFloat(normalized) * size.height
-            return CGPoint(x: x, y: y)
-        }
-    }
-
-    private var activitySearchBar: some View {
-        GroupBox("Activity Search") {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Search logs and tool calls", text: $activitySearchText)
-                    .textFieldStyle(.plain)
-                if !activitySearchText.isEmpty {
-                    Button("Clear") {
-                        activitySearchText = ""
-                    }
-                    .buttonStyle(.bordered)
-                }
-                Spacer()
-                Text("\(filteredLogLines.count) logs · \(filteredToolCalls.count) calls")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        }
-    }
-
-    private var consoleBox: some View {
-        GroupBox("Console") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("stdout / stderr")
-                            .font(.callout.weight(.medium))
-                        Text("Live output from the Bun server")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button(model.isLoadingConsole ? "Refreshing…" : "Reload console") {
-                        Task { await model.refreshConsole() }
-                    }
-                    .buttonStyle(.bordered)
-                }
-
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 8) {
-                            ForEach(model.consoleLines) { line in
-                                consoleLineRow(line)
-                                    .id(line.id)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 4)
-                    }
-                    .frame(minHeight: 220)
-                    .onChange(of: model.consoleLines.count) { _ in
-                        guard let last = model.consoleLines.last else { return }
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
-                    }
-                    .onAppear {
-                        if let last = model.consoleLines.last {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func consoleLineRow(_ line: PokeClawConnectionModel.ConsoleLine) -> some View {
-        let severity = consoleSeverity(for: line)
-        return HStack(alignment: .top, spacing: 10) {
-            Text(severity.label)
-                .font(.system(.caption2, design: .monospaced).weight(.semibold))
-                .foregroundStyle(severity.tint)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(severity.background, in: Capsule())
-            VStack(alignment: .leading, spacing: 2) {
-                Text(line.line)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(severity == .error ? .primary : .primary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(line.stream == "stderr" ? "stderr" : "stdout")
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(severity.tint.opacity(0.12), lineWidth: 1))
-    }
-
-    private func consoleSeverity(for line: PokeClawConnectionModel.ConsoleLine) -> ConsoleSeverity {
-        let normalized = "\(line.stream) \(line.line)".lowercased()
-        if line.stream == "stderr" || normalized.contains("error") || normalized.contains("fatal") {
-            return .error
-        }
-        if normalized.contains("warn") || normalized.contains("warning") {
-            return .warning
-        }
-        return .info
-    }
-
-    private var toolCallsBox: some View {
-        GroupBox("Recent MCP Tool Calls") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Latest calls")
-                        .font(.callout.weight(.medium))
-                    Spacer()
-                    Button("Refresh") {
-                        Task { await model.refreshToolCalls() }
-                    }
-                    .buttonStyle(.bordered)
-                }
-
-                if filteredToolCalls.isEmpty {
-                    Text(activitySearchText.isEmpty ? "No tool calls yet." : "No matching tool calls.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                } else {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(filteredToolCalls) { call in
-                            VStack(alignment: .leading, spacing: 3) {
-                                HStack {
-                                    Text(call.timestamp)
-                                        .font(.system(.caption2, design: .monospaced))
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text(call.tool)
-                                        .font(.caption.weight(.semibold))
-                                }
-                                Text(call.preview)
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func resultCard(title: String, subtitle: String, body: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .fontWeight(.semibold)
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("Copy") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(body, forType: .string)
-                }
-                .buttonStyle(.bordered)
-            }
-
-            ScrollView {
-                Text(body)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .font(.system(.caption, design: .monospaced))
-                    .textSelection(.enabled)
-            }
-            .frame(minHeight: 160)
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private var logsBox: some View {
-        GroupBox("MCP logs") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Recent activity")
-                        .font(.callout.weight(.medium))
-                    Spacer()
-                    Button("Reload") {
-                        Task { await model.refreshLogs() }
-                    }
-                    .buttonStyle(.bordered)
-                }
-
-                if filteredLogLines.isEmpty {
-                    Text(activitySearchText.isEmpty ? "No log lines yet." : "No matching log lines.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 8) {
-                            ForEach(Array(filteredLogLines.enumerated()), id: \.offset) { _, line in
-                                Text(line)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(.primary)
-                                    .textSelection(.enabled)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .frame(minHeight: 140)
-                }
-            }
-        }
-    }
-
-    private var roadmapBox: some View {
-        GroupBox("Polish roadmap") {
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(model.notes, id: \.self) { note in
-                    Label(note, systemImage: "checkmark.seal")
-                }
-            }
-            .font(.callout)
-        }
-    }
-
-    private var directionBox: some View {
-        GroupBox("Native app direction") {
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(toolTiles, id: \.title) { tile in
-                    Label {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(tile.title)
-                                .fontWeight(.medium)
-                            Text(tile.subtitle)
-                                .foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        Image(systemName: tile.symbol)
                     }
                 }
             }
@@ -861,17 +551,25 @@ struct ContentView: View {
     private func pinCurrentCommand() {
         let command = model.customCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty else { return }
-        var updated = favoriteCommands()()
+        var updated = favoriteCommands()
         guard !updated.contains(where: { $0.command == command }) else { return }
-        updated.insert(FavoriteCommand(id: UUID(), title: favoriteTitle(for: command), command: command), at: 0)
+        updated.insert(FavoriteCommand(id: UUID(), title: favoriteTitle(for: command), command: command, colorName: favoriteColorName(for: command)), at: 0)
         saveFavoriteCommands(updated)
         model.statusMessage = "Pinned command to Favorites"
         model.lastAction = "Pinned favorite command"
     }
 
     private func removeFavorite(_ favorite: FavoriteCommand) {
-        favoriteCommands() = favoriteCommands().filter { $0.id != favorite.id }
+        let remaining = favoriteCommands().filter { $0.id != favorite.id }
+        saveFavoriteCommands(remaining)
         model.lastAction = "Removed favorite command"
+    }
+
+    private func updateFavoriteColor(_ favorite: FavoriteCommand, to colorName: String) {
+        var updated = favoriteCommands()
+        guard let index = updated.firstIndex(where: { $0.id == favorite.id }) else { return }
+        updated[index].colorName = colorName
+        saveFavoriteCommands(updated)
     }
 
     private func runFavorite(_ favorite: FavoriteCommand) {
@@ -881,48 +579,33 @@ struct ContentView: View {
 
     private func favoriteTitle(for command: String) -> String {
         let singleLine = command.components(separatedBy: .newlines).first ?? command
-        return singleLine.count > 36 ? String(singleLine.prefix(36)) + "…" : singleLine
+        return singleLine.count > 36 ? String(singleLine.prefix(36)) + "\u2026" : singleLine
     }
 
-    private let commandHistoryKey = "pokeclaw.commandHistory"
-
-    private func commandHistory() -> [String] {
-        UserDefaults.standard.stringArray(forKey: commandHistoryKey) ?? []
+    private func favoriteColorName(for command: String) -> String {
+        let palette = Self.favoriteColorOptions.map(\.name)
+        guard !palette.isEmpty else { return "blue" }
+        let index = abs(command.hashValue) % palette.count
+        return palette[index]
     }
 
-    private func saveCommandHistory(_ history: [String]) {
-        UserDefaults.standard.set(history, forKey: commandHistoryKey)
-    }
-
-    private func recallHistoryCommand(_ command: String) {
-        model.customCommand = command
-        customCommandFocused = true
-        model.lastAction = "Recalled command from history"
-    }
-
-    private func runHistoryCommand(_ command: String) {
-        model.customCommand = command
-        Task { await model.runCustomCommand() }
-    }
-
-    private func toastView(_ banner: PokeClawConnectionModel.CustomCommandBanner) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: banner.style.symbol)
-                .foregroundStyle(banner.style.tint)
-            Text(banner.message)
-                .font(.callout.weight(.medium))
-                .foregroundStyle(.primary)
-            Spacer(minLength: 0)
+    private static func favoriteColor(named name: String) -> Color {
+        switch name {
+        case "purple": return .purple
+        case "pink": return .pink
+        case "red": return .red
+        case "orange": return .orange
+        case "yellow": return .yellow
+        case "green": return .green
+        case "mint": return .mint
+        case "teal": return .teal
+        case "indigo": return .indigo
+        default: return .blue
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(maxWidth: 300)
-        .background(banner.style.background, in: Capsule())
-        .overlay(Capsule().strokeBorder(banner.style.tint.opacity(0.18), lineWidth: 1))
-        .shadow(radius: 10, y: 4)
     }
 
     private static func decodeFavorites(_ string: String) -> [FavoriteCommand] {
+
         guard let data = string.data(using: .utf8), !string.isEmpty else { return [] }
         return (try? JSONDecoder().decode([FavoriteCommand].self, from: data)) ?? []
     }
