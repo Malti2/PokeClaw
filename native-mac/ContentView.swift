@@ -9,7 +9,7 @@ struct ContentView: View {
     @AppStorage("pokeclaw.favoriteCommands") private var favoriteCommandsData = "[]"
     @AppStorage("pokeclaw.selectedPage") private var selectedPage = "dashboard"
     @State private var statsSnapshot: StatsSnapshot? = nil
-    @State private var statsStatus: String = "Loading stats…"
+    @State private var statsStatus: String = "Loading stats\u{2026}"
     @State private var isLoadingStats: Bool = false
 
     private struct QuickAction: Identifiable {
@@ -111,19 +111,19 @@ struct ContentView: View {
 
     private var quickActions: [QuickAction] {
         [
-            QuickAction(title: "systeminfo", subtitle: model.isLoadingSystemInfo ? "Loading details…" : "Inspect host details", symbol: "desktopcomputer", tint: .blue) {
+            QuickAction(title: "systeminfo", subtitle: model.isLoadingSystemInfo ? "Loading details\u{2026}" : "Inspect host details", symbol: "desktopcomputer", tint: .blue) {
                 Task { await model.runSystemInfo() }
             },
-            QuickAction(title: "searchtext", subtitle: model.isRunningSearch ? "Searching…" : "Search \(model.searchRoot)", symbol: "text.magnifyingglass", tint: .purple) {
+            QuickAction(title: "searchtext", subtitle: model.isRunningSearch ? "Searching\u{2026}" : "Search \(model.searchRoot)", symbol: "text.magnifyingglass", tint: .purple) {
                 Task { await model.runSearchText() }
             },
-            QuickAction(title: model.isRefreshingStatus ? "Refreshing status…" : "Refresh status", subtitle: "Poll the MCP server", symbol: "arrow.clockwise", tint: .green) {
+            QuickAction(title: model.isRefreshingStatus ? "Refreshing status\u{2026}" : "Refresh status", subtitle: "Poll the MCP server", symbol: "arrow.clockwise", tint: .green) {
                 Task { await model.refreshServerStatus() }
             },
-            QuickAction(title: model.isLoadingLogs ? "Refreshing logs…" : "Refresh logs", subtitle: "Load recent activity", symbol: "list.bullet.rectangle", tint: .orange) {
+            QuickAction(title: model.isLoadingLogs ? "Refreshing logs\u{2026}" : "Refresh logs", subtitle: "Load recent activity", symbol: "list.bullet.rectangle", tint: .orange) {
                 Task { await model.refreshLogs() }
             },
-            QuickAction(title: model.isLoadingConsole ? "Refreshing console…" : "Refresh console", subtitle: "Load stdout and stderr", symbol: "terminal", tint: .red) {
+            QuickAction(title: model.isLoadingConsole ? "Refreshing console\u{2026}" : "Refresh console", subtitle: "Load stdout and stderr", symbol: "terminal", tint: .red) {
                 Task { await model.refreshConsole() }
             },
             QuickAction(title: "Copy MCP URL", subtitle: model.localEndpoint, symbol: "doc.on.doc", tint: .teal) {
@@ -351,7 +351,7 @@ struct ContentView: View {
                         TextField("PokeClaw", text: $model.searchQuery)
                             .textFieldStyle(.roundedBorder)
                     }
-                    Button(model.isRunningSearch ? "Searching…" : "Run searchtext") {
+                    Button(model.isRunningSearch ? "Searching\u{2026}" : "Run searchtext") {
                         Task { await model.runSearchText() }
                     }
                     .buttonStyle(.borderedProminent)
@@ -361,7 +361,7 @@ struct ContentView: View {
 
                 HStack(alignment: .top, spacing: 12) {
                     resultCard(title: "Search output", subtitle: model.statusMessage, body: model.searchTextOutput)
-                    resultCard(title: "systeminfo output", subtitle: model.isLoadingSystemInfo ? "Loading…" : "Latest host details", body: model.systemInfoOutput)
+                    resultCard(title: "systeminfo output", subtitle: model.isLoadingSystemInfo ? "Loading\u{2026}" : "Latest host details", body: model.systemInfoOutput)
                 }
             }
             .font(.callout)
@@ -384,7 +384,7 @@ struct ContentView: View {
                                 Task { await model.runCustomCommand() }
                             }
                         VStack(alignment: .leading, spacing: 8) {
-                            Button(model.isRunningCustomCommand ? "Running…" : "Run") {
+                            Button(model.isRunningCustomCommand ? "Running\u{2026}" : "Run") {
                                 Task { await model.runCustomCommand() }
                             }
                             .buttonStyle(.borderedProminent)
@@ -1064,7 +1064,7 @@ struct ContentView: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 10) {
-                        Button(isLoadingStats ? "Refreshing…" : "Refresh stats") {
+                        Button(isLoadingStats ? "Refreshing\u{2026}" : "Refresh stats") {
                             Task { await refreshStats() }
                         }
                         .buttonStyle(.borderedProminent)

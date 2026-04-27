@@ -13,23 +13,14 @@ struct PokeClawMacApp: App {
     init() {
         NSApplication.shared.setActivationPolicy(.accessory)
     }
-
     var body: some Scene {
-        if #available(macOS 13.0, *) {
-            WindowGroup {
-                ContentView(model: model)
-                    .preferredColorScheme(Self.colorScheme(named: appearanceMode))
-            }
-            .tint(Self.accentColor(named: accentColorName))
-            .windowResizability(.contentSize)
-            .windowToolbarStyle(.unifiedCompact)
-        } else {
-            WindowGroup {
-                ContentView(model: model)
-                    .preferredColorScheme(Self.colorScheme(named: appearanceMode))
-            }
-            .tint(Self.accentColor(named: accentColorName))
+        WindowGroup {
+            ContentView(model: model)
+                .preferredColorScheme(Self.colorScheme(named: appearanceMode))
         }
+        .tint(Self.accentColor(named: accentColorName))
+        .windowResizability(.contentSize)
+        .windowToolbarStyle(.unifiedCompact)
 
         Settings {
             PokeClawSettingsView(model: model)
@@ -164,7 +155,7 @@ struct PokeClawSettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Picker("Accent color", selection: $accentColorName) {
-                ForEach(accentOptions, id: \.name) { option in
+                ForEach(accentOptions, id: \.label) { option in
                     HStack(spacing: 10) {
                         Circle()
                             .fill(option.color)
@@ -376,7 +367,7 @@ struct PokeClawMenuBarPopoverView: View {
                         .onSubmit { runCommand() }
 
                     HStack {
-                        Button(isRunningCommand ? "Running…" : "Run") {
+                        Button(isRunningCommand ? "Running\u{2026}" : "Run") {
                             runCommand()
                         }
                         .buttonStyle(.borderedProminent)
@@ -549,7 +540,7 @@ final class PokeClawConnectionModel: ObservableObject {
     @Published var customCommandOutput: String = "Enter a command to run on this Mac."
     @Published var customCommandBanner: CustomCommandBanner? = nil
     @Published var isRunningCustomCommand: Bool = false
-    @Published var serverStatus: String = "Checking server status…"
+    @Published var serverStatus: String = "Checking server status\u{2026}"
     @Published var statusMessage: String = "Ready to connect PokeClaw"
     @Published var lastAction: String = "No action yet"
     @Published var lastStatusRefresh: String = "Never"
@@ -562,9 +553,9 @@ final class PokeClawConnectionModel: ObservableObject {
     @Published var systemMonitoringUpdated: String = "Never"
     @Published var systemCpuHistory: [Double] = []
     @Published var systemMemoryHistory: [Double] = []
-    @Published var consoleLines: [ConsoleLine] = [.init(stream: "stdout", line: "Waiting for server console…")]
+    @Published var consoleLines: [ConsoleLine] = [.init(stream: "stdout", line: "Waiting for server console\u{2026}")]
     @Published var toolCalls: [ToolCallEntry] = []
-    @Published var logLines: [String] = ["Waiting for server logs…"]
+    @Published var logLines: [String] = ["Waiting for server logs\u{2026}"]
     @Published var isConnected: Bool = false
     @Published var isLoadingLogs: Bool = false
     @Published var isRefreshingStatus: Bool = false
