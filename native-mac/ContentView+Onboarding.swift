@@ -64,7 +64,6 @@ struct OnboardingView: View {
                     .tag(index)
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: .always))
             .frame(width: 520, height: 260)
 
             HStack {
