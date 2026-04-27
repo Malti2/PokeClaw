@@ -15,11 +15,11 @@ struct PokeClawMacApp: App {
         }
 
         Settings {
-            PokeClawSettingsView(model: model)
+            PokeClawSettingsView()
         }
 
         MenuBarExtra("PokeClaw", systemImage: "pawprint.fill") {
-            PokeClawMenuBarPopoverView(model: model)
+            PokeClawMenuBarPopoverView()
         }
     }
 }
