@@ -12,23 +12,15 @@ struct PokeClawMacApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .preferredColorScheme(Self.colorScheme(named: appearanceMode))
         }
-        .tint(Self.accentColor(named: accentColorName))
-        .windowResizability(.contentSize)
-        .windowToolbarStyle(.unifiedCompact)
 
         Settings {
             PokeClawSettingsView(model: model)
-                .preferredColorScheme(Self.colorScheme(named: appearanceMode))
         }
-        .tint(Self.accentColor(named: accentColorName))
 
         MenuBarExtra("PokeClaw", systemImage: "pawprint.fill") {
             PokeClawMenuBarPopoverView(model: model)
-                .preferredColorScheme(Self.colorScheme(named: appearanceMode))
         }
-        .menuBarExtraStyle(.window)
     }
 }
 
