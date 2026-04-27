@@ -1,7 +1,9 @@
 import AppKit
+import Foundation
 import SwiftUI
 
 @main
+@MainActor
 struct PokeClawMacApp: App {
     init() {
         NSApplication.shared.setActivationPolicy(.regular)
@@ -10,21 +12,27 @@ struct PokeClawMacApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(Self.colorScheme(named: appearanceMode))
         }
+        .tint(Self.accentColor(named: accentColorName))
         .windowResizability(.contentSize)
         .windowToolbarStyle(.unifiedCompact)
 
         Settings {
-            PokeClawSettingsView()
+            PokeClawSettingsView(model: model)
+                .preferredColorScheme(Self.colorScheme(named: appearanceMode))
         }
+        .tint(Self.accentColor(named: accentColorName))
 
         MenuBarExtra("PokeClaw", systemImage: "pawprint.fill") {
-            PokeClawMenuBarPopoverView()
+            PokeClawMenuBarPopoverView(model: model)
+                .preferredColorScheme(Self.colorScheme(named: appearanceMode))
         }
         .menuBarExtraStyle(.window)
     }
 }
 
+@MainActor
 private struct PokeClawSettingsView: View {
     @AppStorage("pokeclaw.serverHost") private var serverHost = "127.0.0.1"
     @AppStorage("pokeclaw.serverPort") private var serverPort = 3741
@@ -420,6 +428,7 @@ private struct PokeClawSettingsView: View {
     }
 }
 
+@MainActor
 private struct PokeClawMenuBarPopoverView: View {
     @State private var isServerRunning = false
     @State private var lastRefresh = "Never"

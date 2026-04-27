@@ -1,8 +1,10 @@
 import AppKit
+import Foundation
 import ServiceManagement
 import SwiftUI
 import UserNotifications
 
+@MainActor
 struct ContentView: View {
     @AppStorage("pokeclaw.hasSeenOnboarding") private var hasSeenOnboarding = false
     @AppStorage("pokeclaw.launchAtLogin") private var launchAtLogin = false
@@ -536,6 +538,7 @@ struct ContentView: View {
     }
 }
 
+@MainActor
 private struct OnboardingView: View {
     @Binding var isPresented: Bool
     let steps: [ContentView.OnboardingStep]
