@@ -42,6 +42,15 @@ const ROOTS: string[] = (process.env.POKECLAW_ROOTS ?? HOME)
   .map((r) => r.trim().replace(/^~/, HOME))
   .filter(Boolean);
 const LOG_LEVEL = (process.env.POKECLAW_LOG_LEVEL ?? "info").toLowerCase();
+const NOTIFY_ENDPOINT = [
+  process.env.POKECLAW_POKE_WEBHOOK_URL,
+  process.env.POKECLAW_NOTIFY_URL,
+  process.env.POKECLAW_MESSAGE_ENDPOINT,
+  process.env.POKE_PLATFORM_ENDPOINT,
+  process.env.POKE_WEBHOOK_URL,
+  process.env.POKECLAW_POKE_ENDPOINT,
+].map((value) => value?.trim()).find((value): value is string => Boolean(value));
+const NOTIFY_TOKEN = (process.env.POKECLAW_POKE_WEBHOOK_TOKEN ?? process.env.POKE_NOTIFY_TOKEN ?? "").trim();
 const RECENT_LOG_LIMIT = 250;
 const recentLogs: string[] = [];
 const recentConsole: { stream: "stdout" | "stderr"; line: string }[] = [];
@@ -50,6 +59,10 @@ const startedAt = Date.now();
 const toolCounts = new Map<string, number>();
 let commandsToday = 0;
 let activeDayKey = new Date().toISOString().slice(0, 10);
+let serverListening = false;
+let connectionEstablished = false;
+let connectionEstablishedAt: number | null = null;
+let startupNotificationSent = false;
 
 function timestamp() {
   return new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -307,6 +320,7 @@ function formatDuration(totalSeconds: number): string {
 }
 
 function statsPayload() {
+  const uptimeSeconds = Math.floor((Date.now() - startedAt) / 1000);
   const topCommands = Array.from(toolCounts.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
@@ -314,12 +328,147 @@ function statsPayload() {
 
   return {
     status: 'ok',
-    uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
-    uptime: formatDuration((Date.now() - startedAt) / 1000),
+    uptimeSeconds,
+    uptime: formatDuration(uptimeSeconds),
     commandsToday,
     topCommands,
     startedAt: new Date(startedAt).toISOString(),
+    connection: {
+      serverListening,
+      connectionEstablished,
+      connectionEstablishedAt: connectionEstablishedAt ? new Date(connectionEstablishedAt).toISOString() : null,
+      startupNotificationSent,
+      notifyEndpointConfigured: Boolean(NOTIFY_ENDPOINT),
+    },
   };
+}
+
+function notificationTargetSummary(): string {
+  return NOTIFY_ENDPOINT ? 'configured' : 'not configured';
+}
+
+function renderStatusLines(): string[] {
+  const stats = statsPayload();
+  return [
+    `status=${stats.status}`,
+    `server_listening=${stats.connection.serverListening}`,
+    `mcp_connected=${stats.connection.connectionEstablished}`,
+    `mcp_connected_at=${stats.connection.connectionEstablishedAt ?? '(not yet)'}`,
+    `startup_notification_sent=${stats.connection.startupNotificationSent}`,
+    `notification_endpoint=${notificationTargetSummary()}`,
+    `uptime=${stats.uptime}`,
+    `commands_today=${stats.commandsToday}`,
+    `top_commands=${stats.topCommands.length ? stats.topCommands.map((item) => `${item.command}:${item.count}`).join(', ') : '(none)'}`,
+  ];
+}
+
+function renderInfoLines(): string[] {
+  return [
+    ...toolSystemInfo().split('\n'),
+    `server_listening=${serverListening}`,
+    `mcp_connected=${connectionEstablished}`,
+    `mcp_connected_at=${connectionEstablishedAt ? new Date(connectionEstablishedAt).toISOString() : '(not yet)'}`,
+    `startup_notification_sent=${startupNotificationSent}`,
+    `notification_endpoint=${notificationTargetSummary()}`,
+  ];
+}
+
+function printConsoleBlock(title: string, lines: string[]) {
+  emitConsole('stdout', `${title}`);
+  for (const line of lines) emitConsole('stdout', `  ${line}`);
+}
+
+function handleConsoleCommand(rawCommand: string) {
+  const command = rawCommand.trim();
+  if (!command) return;
+
+  const head = command.toLowerCase().split(/\s+/, 2)[0] ?? '';
+  switch (head) {
+    case 'status':
+      printConsoleBlock('Console status', renderStatusLines());
+      return;
+    case 'info':
+      printConsoleBlock('Console info', renderInfoLines());
+      return;
+    case 'help':
+      printConsoleBlock('Console commands', [
+        'status  - show uptime, connection, and command counters',
+        'info    - show full system and connection information',
+        'help    - show available console commands',
+      ]);
+      return;
+    default:
+      emitConsole('stdout', `Unknown console command: ${command}`);
+      emitConsole('stdout', 'Type "status", "info", or "help".');
+  }
+}
+
+function installStdinListener() {
+  if (!process.stdin.isTTY || process.env.POKECLAW_DISABLE_STDIN !== undefined) return;
+  process.stdin.setEncoding('utf8');
+  process.stdin.resume();
+  let buffer = '';
+
+  process.stdin.on('data', (chunk: string) => {
+    buffer += chunk;
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() ?? '';
+    for (const line of lines) handleConsoleCommand(line);
+  });
+
+  process.stdin.on('end', () => {
+    if (buffer.trim()) handleConsoleCommand(buffer);
+  });
+}
+
+async function notifyPokePlatform(event: string, payload: Record<string, unknown>) {
+  if (!NOTIFY_ENDPOINT) return false;
+
+  const body = {
+    event,
+    source: APP_NAME,
+    version: VERSION,
+    timestamp: new Date().toISOString(),
+    port: PORT,
+    localUrl: `http://127.0.0.1:${PORT}/mcp`,
+    healthUrl: `http://127.0.0.1:${PORT}/health`,
+    authEnabled: Boolean(TOKEN),
+    roots: ROOTS,
+    ...payload,
+  };
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (NOTIFY_TOKEN) headers.Authorization = `Bearer ${NOTIFY_TOKEN}`;
+
+    const response = await fetch(NOTIFY_ENDPOINT, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
+    }
+
+    return true;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    log('warn', `Failed to notify Poke platform for ${event}: ${message}`);
+    return false;
+  }
+}
+
+function markConnectionEstablished(trigger: string) {
+  if (connectionEstablished) return;
+  connectionEstablished = true;
+  connectionEstablishedAt = Date.now();
+  void notifyPokePlatform('connection_established', {
+    trigger,
+    connection: statsPayload().connection,
+  });
 }
 
 const TOOLS = [
@@ -342,9 +491,13 @@ async function handleRPC(body: Record<string, unknown>): Promise<unknown> {
 
   try {
     switch (method) {
-      case "initialize":
-        return ok({ protocolVersion: "2024-11-05", serverInfo: { name: APP_NAME, version: VERSION }, capabilities: { tools: {} } });
+      case "initialize": {
+        const result = { protocolVersion: "2024-11-05", serverInfo: { name: APP_NAME, version: VERSION }, capabilities: { tools: {} } };
+        markConnectionEstablished("initialize");
+        return ok(result);
+      }
       case "notifications/initialized":
+        markConnectionEstablished("notifications/initialized");
         return null;
       case "tools/list":
         return ok({ tools: TOOLS });
@@ -464,6 +617,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 });
 
 server.listen(PORT, "127.0.0.1", () => {
+  serverListening = true;
   emitConsole("stdout", `PokeClaw ${VERSION} is running`);
   emitConsole("stdout", `Local  : http://127.0.0.1:${PORT}/mcp`);
   emitConsole("stdout", `Health : http://127.0.0.1:${PORT}/health`);
@@ -475,5 +629,11 @@ server.listen(PORT, "127.0.0.1", () => {
   emitConsole("stdout", `Roots  : ${ROOTS.join(", ")}`);
   emitConsole("stdout", `Tools  : ${TOOLS.map((tool) => tool.name).join(", ")}`);
   pushRecentLog(`[${timestamp()}] INFO server started on 127.0.0.1:${PORT}`);
+  void notifyPokePlatform('server_started', {
+    connection: statsPayload().connection,
+  }).then((sent) => {
+    startupNotificationSent = sent;
+  });
+  installStdinListener();
   emitConsole("stdout", `Waiting for Poke…`);
 });
