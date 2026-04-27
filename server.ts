@@ -28,16 +28,17 @@
 import { createServer } from "http";
 import type { IncomingMessage, ServerResponse } from "http";
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync } from "fs";
-import { execSync } from "child_process";
+import { execSync, type ChildProcess } from "child_process";
 import { resolve, join, dirname } from "path";
+import { resolveLaunchState, saveLaunchConfig } from "./tui.ts";
 import { homedir, hostname, platform, release, arch } from "os";
 
 const APP_NAME = "PokeClaw";
 const VERSION = "1.1.0-beta";
-const PORT = parseInt(process.env.POKECLAW_PORT ?? "3741", 10);
-const TOKEN = process.env.POKECLAW_TOKEN ?? "";
+let PORT = parseInt(process.env.POKECLAW_PORT ?? "3741", 10);
+let TOKEN = process.env.POKECLAW_TOKEN ?? "";
 const HOME = homedir();
-const ROOTS: string[] = (process.env.POKECLAW_ROOTS ?? HOME)
+let ROOTS: string[] = (process.env.POKECLAW_ROOTS ?? HOME)
   .split(",")
   .map((r) => r.trim().replace(/^~/, HOME))
   .filter(Boolean);
@@ -63,6 +64,7 @@ let serverListening = false;
 let connectionEstablished = false;
 let connectionEstablishedAt: number | null = null;
 let startupNotificationSent = false;
+let activeTunnelProcess: ChildProcess | null = null;
 
 function timestamp() {
   return new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -616,6 +618,37 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   json(res, 404, { error: "Not found" });
 });
 
+const launchState = await resolveLaunchState({
+  port: PORT,
+  roots: ROOTS,
+  token: TOKEN,
+});
+
+PORT = launchState.config.port;
+TOKEN = launchState.config.token;
+ROOTS = launchState.config.roots;
+activeTunnelProcess = launchState.tunnelProcess;
+if (launchState.config.tunnel.enabled) {
+  saveLaunchConfig(launchState.config);
+}
+
+const shutdown = () => {
+  try {
+    activeTunnelProcess?.kill("SIGTERM");
+  } catch {
+    // ignore
+  }
+};
+
+process.on("SIGINT", () => {
+  shutdown();
+  process.exit(0);
+});
+process.on("SIGTERM", () => {
+  shutdown();
+  process.exit(0);
+});
+
 server.listen(PORT, "127.0.0.1", () => {
   serverListening = true;
   emitConsole("stdout", `PokeClaw ${VERSION} is running`);
@@ -628,6 +661,9 @@ server.listen(PORT, "127.0.0.1", () => {
   }
   emitConsole("stdout", `Roots  : ${ROOTS.join(", ")}`);
   emitConsole("stdout", `Tools  : ${TOOLS.map((tool) => tool.name).join(", ")}`);
+  if (launchState.tunnelSummary) {
+    emitConsole("stdout", `Tunnel : ${launchState.tunnelSummary}`);
+  }
   pushRecentLog(`[${timestamp()}] INFO server started on 127.0.0.1:${PORT}`);
   void notifyPokePlatform('server_started', {
     connection: statsPayload().connection,
