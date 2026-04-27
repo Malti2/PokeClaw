@@ -1,6 +1,8 @@
 import AppKit
 import Foundation
+import ServiceManagement
 import SwiftUI
+import UserNotifications
 
 @main
 @MainActor
