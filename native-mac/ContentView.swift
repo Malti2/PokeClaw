@@ -599,7 +599,7 @@ struct ContentView: View {
 
     private func favoriteTitle(for command: String) -> String {
         let singleLine = command.components(separatedBy: .newlines).first ?? command
-        return singleLine.count > 36 ? String(singleLine.prefix(36)) + "\u2026" : singleLine
+        return singleLine.count > 36 ? String(singleLine.prefix(36)) + "\u{2026}" : singleLine
     }
 
     private func favoriteColorName(for command: String) -> String {
@@ -829,7 +829,7 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button(model.isLoadingConsole ? "Refreshing\u2026" : "Reload console") {
+                    Button(model.isLoadingConsole ? "Refreshing\u{2026}" : "Reload console") {
                         Task { await model.refreshConsole() }
                     }
                     .buttonStyle(.bordered)
@@ -1143,7 +1143,7 @@ struct ContentView: View {
                 model.statusMessage = model.isConnected ? "Ready for Poke requests" : "Waiting for a local server"
                 model.lastAction = model.isConnected ? "Connected" : "Disconnected"
             }
-            Button(model.isRefreshingStatus ? "Refreshing\u2026" : "Refresh status") {
+            Button(model.isRefreshingStatus ? "Refreshing\u{2026}" : "Refresh status") {
                 Task { await model.refreshServerStatus() }
             }
             .buttonStyle(.bordered)
@@ -1151,4 +1151,6 @@ struct ContentView: View {
             Spacer()
         }
     }
+}
+
 }

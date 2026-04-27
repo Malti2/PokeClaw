@@ -15,13 +15,21 @@ struct PokeClawMacApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
-            ContentView(model: model)
-                .preferredColorScheme(Self.colorScheme(named: appearanceMode))
+        if #available(macOS 13.0, *) {
+            WindowGroup {
+                ContentView(model: model)
+                    .preferredColorScheme(Self.colorScheme(named: appearanceMode))
+            }
+            .tint(Self.accentColor(named: accentColorName))
+            .windowResizability(.contentSize)
+            .windowToolbarStyle(.unifiedCompact)
+        } else {
+            WindowGroup {
+                ContentView(model: model)
+                    .preferredColorScheme(Self.colorScheme(named: appearanceMode))
+            }
+            .tint(Self.accentColor(named: accentColorName))
         }
-        .tint(Self.accentColor(named: accentColorName))
-        .windowResizability(.contentSize)
-        .windowToolbarStyle(.unifiedCompact)
 
         Settings {
             PokeClawSettingsView(model: model)
@@ -156,7 +164,7 @@ struct PokeClawSettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Picker("Accent color", selection: $accentColorName) {
-                ForEach(accentOptions, id: .name) { option in
+                ForEach(accentOptions, id: \.name) { option in
                     HStack(spacing: 10) {
                         Circle()
                             .fill(option.color)
@@ -921,6 +929,20 @@ final class PokeClawConnectionModel: ObservableObject {
         if FileManager.default.fileExists(atPath: launchAgentURL.path) {
             try FileManager.default.removeItem(at: launchAgentURL)
         }
+    }
+
+    private let customCommandHistoryKey = "pokeclaw.customCommandHistory"
+
+    private func recordCustomCommandHistory(_ command: String) {
+        let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var history = UserDefaults.standard.stringArray(forKey: customCommandHistoryKey) ?? []
+        history.removeAll { $0 == trimmed }
+        history.insert(trimmed, at: 0)
+        if history.count > 25 {
+            history = Array(history.prefix(25))
+        }
+        UserDefaults.standard.set(history, forKey: customCommandHistoryKey)
     }
 
     private func appendSystemMetricHistory(_ value: String?, to history: inout [Double]) {
