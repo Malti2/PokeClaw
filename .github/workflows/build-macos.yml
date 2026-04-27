@@ -1,0 +1,81 @@
+name: Build PokeClaw macOS release
+
+on:
+  push:
+    branches:
+      - beta
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Swift package
+        working-directory: native-mac
+        run: swift build -c release
+
+      - name: Package app and dmg
+        working-directory: native-mac
+        run: |
+          set -euo pipefail
+          APP_NAME="PokeClaw"
+          BUNDLE_ID="com.malti2.pokeclaw"
+          BUILD_DIR=".build/release"
+          VERSION="${GITHUB_SHA::7}"
+          ARTIFACT_DIR="$PWD/dist"
+          APP_DIR="$ARTIFACT_DIR/${APP_NAME}.app"
+          DMG_PATH="$ARTIFACT_DIR/${APP_NAME}-${VERSION}.dmg"
+
+          rm -rf "$ARTIFACT_DIR"
+          mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
+          cp "$BUILD_DIR/$APP_NAME" "$APP_DIR/Contents/MacOS/$APP_NAME"
+          chmod +x "$APP_DIR/Contents/MacOS/$APP_NAME"
+
+          cat > "$APP_DIR/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleDisplayName</key>
+            <string>PokeClaw</string>
+            <key>CFBundleName</key>
+            <string>PokeClaw</string>
+            <key>CFBundleIdentifier</key>
+            <string>${BUNDLE_ID}</string>
+            <key>CFBundleExecutable</key>
+            <string>PokeClaw</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${VERSION}</string>
+            <key>CFBundleVersion</key>
+            <string>${GITHUB_RUN_NUMBER}</string>
+            <key>LSUIElement</key>
+            <true/>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+
+          hdiutil create -volname "$APP_NAME" -srcfolder "$APP_DIR" -ov -format UDZO "$DMG_PATH"
+          ls -lh "$DMG_PATH" "$APP_DIR"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: native-mac/dist
+        run: |
+          set -euo pipefail
+          TAG="macos-beta-${GITHUB_SHA::7}"
+          gh release create "$TAG" "PokeClaw-${GITHUB_SHA::7}.dmg" \
+            --title "PokeClaw macOS beta ${GITHUB_SHA::7}" \
+            --notes "Automated macOS build from beta branch commit ${GITHUB_SHA}." \
+            --prerelease \
+            --target "$GITHUB_SHA"
