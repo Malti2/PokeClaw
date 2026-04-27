@@ -15,6 +15,8 @@ struct PokeClawMacApp: App {
         WindowGroup {
             ContentView()
         }
+        .windowResizability(.contentSize)
+        .windowToolbarStyle(.unifiedCompact)
 
         Settings {
             PokeClawSettingsView()
@@ -23,6 +25,7 @@ struct PokeClawMacApp: App {
         MenuBarExtra("PokeClaw", systemImage: "pawprint.fill") {
             PokeClawMenuBarPopoverView()
         }
+        .menuBarExtraStyle(.window)
     }
 }
 
@@ -94,11 +97,17 @@ private struct PokeClawSettingsView: View {
             }
         }
         .padding(20)
-        .frame(width: 520)
+        .frame(width: 560)
         .task {
             syncLaunchState()
             syncNotificationState()
             await refreshUpdateStatus()
+        }
+        .onChange(of: launchAtLogin) { enabled in
+            updateLaunchAtLogin(enabled: enabled)
+        }
+        .onChange(of: notificationsEnabled) { enabled in
+            Task { await updateNotificationSettings(enabled: enabled) }
         }
     }
 
@@ -119,9 +128,6 @@ private struct PokeClawSettingsView: View {
                 }
             }
             .toggleStyle(.switch)
-            .onChange(of: launchAtLogin) { enabled in
-                updateLaunchAtLogin(enabled: enabled)
-            }
 
             HStack(spacing: 10) {
                 Button("Show onboarding") {
@@ -214,9 +220,6 @@ private struct PokeClawSettingsView: View {
                 }
             }
             .toggleStyle(.switch)
-            .onChange(of: notificationsEnabled) { enabled in
-                Task { await updateNotifications(enabled: enabled) }
-            }
 
             HStack(spacing: 10) {
                 Button("Request permission") {
@@ -259,13 +262,6 @@ private struct PokeClawSettingsView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(isCheckingUpdates)
             }
-
-            if let latestReleaseURL {
-                Button("Open latest release") {
-                    openURL(latestReleaseURL)
-                }
-                .buttonStyle(.bordered)
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -274,7 +270,7 @@ private struct PokeClawSettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("About")
                 .font(.headline)
-            Text("PokeClaw is the native companion for the local MCP server, built to keep the connection easy to set up and easy to trust.")
+            Text("PokeClaw is the native companion for the local MCP server.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -313,9 +309,9 @@ private struct PokeClawSettingsView: View {
         }
     }
 
-    private func copyToPasteboard(_ string: String) {
+    private func copyToPasteboard(_ value: String) {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(string, forType: .string)
+        NSPasteboard.general.setString(value, forType: .string)
     }
 
     private func syncLaunchState() {
@@ -324,6 +320,7 @@ private struct PokeClawSettingsView: View {
             launchStatus = launchAtLogin ? "Enabled in Login Items" : "Disabled"
         } else {
             launchStatus = "Unavailable on this macOS version"
+            launchAtLogin = false
         }
     }
 
@@ -343,7 +340,7 @@ private struct PokeClawSettingsView: View {
                 launchStatus = "Disabled"
             }
         } catch {
-            launchStatus = error.localizedDescription
+            launchStatus = "Launch at login change failed: \(error.localizedDescription)"
             launchAtLogin = SMAppService.mainApp.status == .enabled
         }
     }
@@ -379,12 +376,12 @@ private struct PokeClawSettingsView: View {
         } catch {
             await MainActor.run {
                 notificationsEnabled = false
-                notificationStatus = error.localizedDescription
+                notificationStatus = "Notification permission request failed: \(error.localizedDescription)"
             }
         }
     }
 
-    private func updateNotifications(enabled: Bool) async {
+    private func updateNotificationSettings(enabled: Bool) async {
         if enabled {
             await requestNotificationPermission()
         } else {
@@ -398,7 +395,7 @@ private struct PokeClawSettingsView: View {
         guard !isCheckingUpdates else { return }
         isCheckingUpdates = true
         defer { isCheckingUpdates = false }
-
+        updateStatus = "Checking for updates…"
         let apiURL = URL(string: "https://api.github.com/repos/Malti2/PokeClaw/releases/latest")!
         var request = URLRequest(url: apiURL)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -412,9 +409,15 @@ private struct PokeClawSettingsView: View {
                 return
             }
 
-            let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
+            let release = try JSONDecoder().decode(ContentView.GitHubRelease.self, from: data)
             latestReleaseURL = release.htmlURL
-            updateStatus = "Latest release: \(release.displayName)"
+
+            let currentVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
+            if release.tagName.compare(currentVersion, options: .numeric) == .orderedDescending {
+                updateStatus = "Update available: \(release.displayName)"
+            } else {
+                updateStatus = "You are up to date"
+            }
         } catch {
             updateStatus = "Update check failed: \(error.localizedDescription)"
             latestReleaseURL = nil
@@ -424,16 +427,15 @@ private struct PokeClawSettingsView: View {
 
 @MainActor
 private struct PokeClawMenuBarPopoverView: View {
-    @State private var isServerRunning = false
     @State private var lastRefresh = "Never"
-    @State private var statusText = "Server stopped"
     @State private var updateText = "No update check yet"
+    @State private var isCheckingUpdates = false
 
     @AppStorage("pokeclaw.serverHost") private var serverHost = "127.0.0.1"
     @AppStorage("pokeclaw.serverPort") private var serverPort = 3741
     @AppStorage("pokeclaw.serverToken") private var serverToken = ""
 
-    var mcpURL: String {
+    private var mcpURL: String {
         var components = URLComponents()
         components.scheme = "http"
         components.host = serverHost
@@ -451,35 +453,15 @@ private struct PokeClawMenuBarPopoverView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("PokeClaw")
                         .font(.headline)
-                    Text(statusText)
+                    Text("Menu bar shortcuts and release status")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Circle()
-                    .fill(isServerRunning ? .green : .orange)
-                    .frame(width: 10, height: 10)
-            }
-
-            GroupBox("Quick actions") {
-                VStack(alignment: .leading, spacing: 10) {
-                    Button(isServerRunning ? "Stop server" : "Start server") {
-                        toggleServer()
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Button("Open settings") {
-                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button("Copy MCP URL") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(mcpURL, forType: .string)
-                    }
-                    .buttonStyle(.bordered)
+                Button("Open settings") {
+                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .buttonStyle(.bordered)
             }
 
             GroupBox("Status") {
@@ -499,10 +481,17 @@ private struct PokeClawMenuBarPopoverView: View {
             }
 
             HStack {
-                Button("Check updates") {
+                Button("Copy MCP URL") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(mcpURL, forType: .string)
+                }
+                .buttonStyle(.bordered)
+
+                Button(isCheckingUpdates ? "Checking…" : "Check updates") {
                     Task { await checkForUpdates() }
                 }
                 .buttonStyle(.bordered)
+                .disabled(isCheckingUpdates)
 
                 Spacer()
 
@@ -513,20 +502,17 @@ private struct PokeClawMenuBarPopoverView: View {
             }
         }
         .padding(16)
-        .frame(width: 360)
+        .frame(width: 380)
         .task {
             lastRefresh = Date().formatted(date: .omitted, time: .shortened)
             await checkForUpdates()
         }
     }
 
-    private func toggleServer() {
-        isServerRunning.toggle()
-        statusText = isServerRunning ? "Server running" : "Server stopped"
-        lastRefresh = Date().formatted(date: .omitted, time: .shortened)
-    }
-
     private func checkForUpdates() async {
+        guard !isCheckingUpdates else { return }
+        isCheckingUpdates = true
+        defer { isCheckingUpdates = false }
         updateText = "Checking for updates…"
         let apiURL = URL(string: "https://api.github.com/repos/Malti2/PokeClaw/releases/latest")!
         var request = URLRequest(url: apiURL)
@@ -540,27 +526,10 @@ private struct PokeClawMenuBarPopoverView: View {
                 return
             }
 
-            let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
+            let release = try JSONDecoder().decode(ContentView.GitHubRelease.self, from: data)
             updateText = "Latest release: \(release.displayName)"
         } catch {
-            updateText = "Update check failed"
+            updateText = "Update check failed: \(error.localizedDescription)"
         }
-    }
-}
-
-private struct GitHubRelease: Decodable {
-    let tagName: String
-    let name: String?
-    let htmlURL: URL
-
-    enum CodingKeys: String, CodingKey {
-        case tagName = "tag_name"
-        case name
-        case htmlURL = "html_url"
-    }
-
-    var displayName: String {
-        if let name, !name.isEmpty { return name }
-        return tagName
     }
 }
