@@ -123,45 +123,18 @@ function toolListDirectory(args: Record<string, unknown>): string {
   return entries.length ? entries.join("\n") : "(empty)";
 }
 
+function shellQuote(value: string): string {
+  return "'" + value.replace(/'/g, "'"'"'") + "'";
+}
+
 async function toolSearchFiles(args: Record<string, unknown>): Promise<string> {
   if (!args.root)    throw new Error("root is required");
   if (!args.pattern) throw new Error("pattern is required");
   const root    = safePath(String(args.root));
   const pattern = String(args.pattern);
-  // Use find(1) so we don't need an npm dependency for glob
-  const cmd = `find "${root}" -name "${pattern}" 2>/dev/null | head -200`;
+  const cmd = `find ${shellQuote(root)} -name ${shellQuote(pattern)} 2>/dev/null | head -200`;
   const out = execSync(cmd, { encoding: "utf-8", timeout: 15_000 });
   return out.trim() || "No files matched.";
-}
-
-function toolRunCommand(args: Record<string, unknown>): string {
-  if (!args.command) throw new Error("command is required");
-  const command   = String(args.command);
-  const cwd       = args.cwd ? safePath(String(args.cwd)) : HOME;
-  const timeoutMs = args.timeout_ms ? parseInt(String(args.timeout_ms), 10) : 30_000;
-  if (blocked(command)) throw new Error("Blocked: command matched a dangerous pattern");
-  try {
-    const out = execSync(command, {
-      cwd,
-      timeout: timeoutMs,
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    return out || "(no output)";
-  } catch (e: unknown) {
-    if (e && typeof e === "object" && "stdout" in e) {
-      const err = e as { stdout?: string; stderr?: string; message?: string };
-      const combined = [err.stdout, err.stderr].filter(Boolean).join("\n").trim();
-      throw new Error(combined || (err.message ?? "Command failed"));
-    }
-    throw e;
-  }
-}
-
-function toolGetEnv(args: Record<string, unknown>): string {
-  if (!args.name) throw new Error("name is required");
-  const val = process.env[String(args.name)];
-  return val !== undefined ? val : "(not set)";
 }
 
 // ─── MCP tool schemas ──────────────────────────────────────────────────────────
