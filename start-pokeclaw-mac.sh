@@ -162,6 +162,36 @@ else
   fi
 fi
 
+
+# ── Persistent Cloudflare tunnel helpers ─────────────────────────────────────
+_write_persistent_tunnel_config() {
+  local config_file="$1"
+  local tunnel_id="$2"
+  local credentials_file="$3"
+  local hostname="$4"
+
+  mkdir -p "$(dirname "$config_file")"
+  cat >"$config_file" <<EOF
+tunnel: ${tunnel_id}
+credentials-file: ${credentials_file}
+ingress:
+  - hostname: ${hostname}
+    service: http://127.0.0.1:${PORT}
+  - service: http_status:404
+EOF
+}
+
+_resolve_persistent_tunnel_url() {
+  if [ -n "${POKECLAW_TUNNEL_PUBLIC_URL:-}" ]; then
+    echo "${POKECLAW_TUNNEL_PUBLIC_URL}"
+  elif [ -n "${POKECLAW_TUNNEL_HOSTNAME:-}" ]; then
+    echo "https://${POKECLAW_TUNNEL_HOSTNAME}"
+  elif [ -n "${POKECLAW_TUNNEL_CONFIG:-}" ] && [ -f "${POKECLAW_TUNNEL_CONFIG:-}" ]; then
+    local _host
+    _host=$(grep -m1 'hostname:' "${POKECLAW_TUNNEL_CONFIG}" 2>/dev/null | awk '{print $2}' || true)
+    [ -n "$_host" ] && echo "https://${_host}"
+  fi
+}
 # ── Step 6: Kill any process already on the port ──────────────────────────────
 _existing=$(lsof -ti tcp:"${PORT}" 2>/dev/null || true)
 if [ -n "$_existing" ]; then
@@ -193,16 +223,44 @@ echo "✅  Server running (PID ${SERVER_PID})"
 echo "🌐  Starting cloudflared tunnel…"
 echo "    (logs → ${TUNNEL_LOG})"
 rm -f "$TUNNEL_LOG"
-cloudflared tunnel --url "http://127.0.0.1:${PORT}" >"$TUNNEL_LOG" 2>&1 &
-TUNNEL_PID=$!
 
-# Wait for tunnel URL to appear in log
+USE_PERSISTENT_TUNNEL=false
+if [ "${POKECLAW_TUNNEL_MODE:-ephemeral}" = "persistent" ] || [ -n "${POKECLAW_TUNNEL_CONFIG:-}" ] || [ -n "${POKECLAW_TUNNEL_ID:-}" ] || [ -n "${POKECLAW_TUNNEL_HOSTNAME:-}" ]; then
+  USE_PERSISTENT_TUNNEL=true
+fi
+
 TUNNEL_URL=""
-for _i in {1..30}; do
-  sleep 1
-  TUNNEL_URL=$(grep -o 'https://[a-zA-Z0-9-]*\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | head -1 || true)
-  [ -n "$TUNNEL_URL" ] && break
-done
+if [ "$USE_PERSISTENT_TUNNEL" = true ]; then
+  if [ -z "${POKECLAW_TUNNEL_CONFIG:-}" ]; then
+    POKECLAW_TUNNEL_CONFIG="$DEFAULT_TUNNEL_CONFIG"
+  fi
+
+  if [ -z "${POKECLAW_TUNNEL_ID:-}" ] || [ -z "${POKECLAW_TUNNEL_HOSTNAME:-}" ] || [ -z "${POKECLAW_TUNNEL_CREDENTIALS:-}" ]; then
+    echo "❌  Persistent tunnel mode needs POKECLAW_TUNNEL_ID, POKECLAW_TUNNEL_HOSTNAME, and POKECLAW_TUNNEL_CREDENTIALS."
+    exit 1
+  fi
+
+  if [ ! -f "$POKECLAW_TUNNEL_CONFIG" ]; then
+    _write_persistent_tunnel_config "$POKECLAW_TUNNEL_CONFIG" "$POKECLAW_TUNNEL_ID" "$POKECLAW_TUNNEL_CREDENTIALS" "$POKECLAW_TUNNEL_HOSTNAME"
+    echo "✅  Persistent tunnel config written to ${POKECLAW_TUNNEL_CONFIG}"
+  else
+    echo "✅  Using persistent tunnel config ${POKECLAW_TUNNEL_CONFIG}"
+  fi
+
+  cloudflared tunnel --config "$POKECLAW_TUNNEL_CONFIG" run >"$TUNNEL_LOG" 2>&1 &
+  TUNNEL_PID=$!
+  TUNNEL_URL="$(_resolve_persistent_tunnel_url)"
+else
+  cloudflared tunnel --url "http://127.0.0.1:${PORT}" >"$TUNNEL_LOG" 2>&1 &
+  TUNNEL_PID=$!
+
+  # Wait for tunnel URL to appear in log
+  for _i in {1..30}; do
+    sleep 1
+    TUNNEL_URL=$(grep -o 'https://[a-zA-Z0-9-]*\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | head -1 || true)
+    [ -n "$TUNNEL_URL" ] && break
+  done
+fi
 
 # ── Done ───────────────────────────────────────────────────────────────────────
 echo ""
@@ -222,7 +280,7 @@ if [ -n "$TUNNEL_URL" ]; then
     echo "   ⚠️   No token set — set POKECLAW_TOKEN to require authentication"
   fi
 else
-  echo "   ⚠️   Could not detect tunnel URL automatically."
+  echo "   ⚠️   Could not determine tunnel URL automatically."
   echo "   Check ${TUNNEL_LOG} for the cloudflared public URL."
 fi
 echo ""
