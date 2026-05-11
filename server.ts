@@ -28,7 +28,7 @@
 import { createServer } from "http";
 import type { IncomingMessage, ServerResponse } from "http";
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync } from "fs";
-import { execSync, type ChildProcess } from "child_process";
+import { execSync } from "child_process";
 import { resolve, join, dirname } from "path";
 import { resolveLaunchState, saveLaunchConfig } from "./tui.ts";
 import { homedir, hostname, platform, release, arch } from "os";
@@ -64,7 +64,7 @@ let serverListening = false;
 let connectionEstablished = false;
 let connectionEstablishedAt: number | null = null;
 let startupNotificationSent = false;
-let activeTunnelProcess: ChildProcess | null = null;
+let activeTunnelProcess: { stop: () => Promise<void> | void } | null = null;
 
 function timestamp() {
   return new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -634,7 +634,7 @@ if (launchState.config.tunnel.enabled) {
 
 const shutdown = () => {
   try {
-    activeTunnelProcess?.kill("SIGTERM");
+    void activeTunnelProcess?.stop();
   } catch {
     // ignore
   }
