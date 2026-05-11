@@ -15,27 +15,9 @@ By default, Poke lives in the cloud and doesn't have access to files on your com
 
 PokeClaw works on **macOS** (any Mac) and **Linux** (Debian/Ubuntu, Fedora/RHEL, Arch, and compatible distributions).
 
-### Persistent Cloudflare Tunnel (recommended)
+### Poke tunnel (recommended)
 
-If you want a stable public URL instead of a new trycloudflare URL on every launch, create a named tunnel once and route it to a custom domain:
-
-```bash
-cloudflared tunnel login
-cloudflared tunnel create pokeclaw
-cloudflared tunnel route dns pokeclaw pokeclaw.example.com
-```
-
-Then set these environment variables before launching PokeClaw:
-
-```bash
-export POKECLAW_TUNNEL_MODE=persistent
-export POKECLAW_TUNNEL_ID="<your-tunnel-uuid>"
-export POKECLAW_TUNNEL_HOSTNAME="pokeclaw.example.com"
-export POKECLAW_TUNNEL_CREDENTIALS="$HOME/.cloudflared/<your-tunnel-uuid>.json"
-export POKECLAW_TUNNEL_CONFIG="$HOME/.config/pokeclaw/cloudflared.yml"
-```
-
-The start scripts will reuse or generate the Cloudflare config and keep the public MCP URL stable across restarts.
+PokeClaw now uses the Poke SDK / PokeTunnel instead of Cloudflare. Run `bash start.sh` (or the platform launcher) and it will connect to Poke Cloud automatically. The public MCP URL is stable through `tunnel.poke.com`, so you do not need your own domain.
 
 ### Native Mac companion
 
@@ -61,7 +43,7 @@ A native SwiftUI companion now lives in `native-mac/` and gives PokeClaw a Mac-f
 
 ## Automated Setup (Recommended)
 
-Choose the script that matches your OS. Both handle the **full setup and launch** automatically.
+Use `bash start.sh` for the simplest cross-platform launcher. The macOS and Linux launchers still handle the full setup and launch automatically.
 
 ### macOS
 
@@ -72,11 +54,11 @@ bash start-pokeclaw-mac.sh
 The script will:
 1. **Install Homebrew** if not present
 2. **Install Bun** (preferred) or use Node.js if already installed
-3. **Install cloudflared** via Homebrew if not present
+3. **Install the Poke SDK dependency** needed for the tunnel client
 4. **Install dependencies**
 5. **Guide you through configuration** — port, allowed folders, auth token, and optional persistent tunnel settings
 6. **Optionally save settings** to `~/.zshrc` for future sessions
-7. **Launch the server and cloudflared tunnel**, then print your public MCP URL
+7. **Launch the server and Poke tunnel**, then print your public MCP URL
 
 > **Quiet mode:** Relaunch with `bash start-pokeclaw-mac.sh --quiet` to skip all prompts and use your saved settings.
 
@@ -91,14 +73,14 @@ bash start-pokeclaw-linux.sh
 The Linux script performs the same steps as the macOS version, with the following differences:
 
 - **No Homebrew** — uses your system package manager instead (`apt` for Debian/Ubuntu, `dnf` for Fedora/RHEL, `pacman` for Arch)
-- **cloudflared** is installed via the official Cloudflare package repository (apt/dnf) or AUR (Arch)
+- **Poke tunnel** is started through the Poke SDK; no Cloudflare binary is required
 - Settings are saved to `~/.bashrc` instead of `~/.zshrc`
 - Port-in-use detection uses `lsof` with a `fuser` fallback
 
 Supported distributions:
 - Debian / Ubuntu (and derivatives): uses `apt`
 - Fedora / RHEL / CentOS Stream: uses `dnf`
-- Arch Linux (and derivatives): uses `pacman` + AUR helper (`yay` or `paru`) for cloudflared
+- Arch Linux (and derivatives): uses `pacman` + AUR helper (`yay` or `paru`) for Poke tunnel
 
 > **Quiet mode:** Relaunch with `bash start-pokeclaw-linux.sh --quiet` to skip all prompts and use your saved settings.
 
@@ -111,8 +93,7 @@ If you prefer to configure things yourself:
 ### Prerequisites
 
 - Node.js 18+ or Bun
-- **macOS:** cloudflared via `brew install cloudflared`
-- **Linux:** cloudflared via your package manager or from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+- **macOS/Linux:** Bun or Node.js, plus the Poke SDK dependency installed automatically by the launcher
 
 ### Step 1 — Set up the server
 
@@ -176,7 +157,7 @@ Or start each component manually:
 bun run ~/pokeclaw/server.ts
 
 # Terminal 2
-cloudflared tunnel --url http://127.0.0.1:3741
+PokeClaw is launched via `bash start.sh` and connects to Poke Cloud automatically
 ```
 
 ---
@@ -270,11 +251,11 @@ systemctl --user enable --now pokeclaw
 
 ## Security notes
 
-- Server listens on `127.0.0.1` only — not exposed without cloudflared
+- Server listens on `127.0.0.1` only — not exposed without Poke tunnel
 - Set `POKECLAW_TOKEN` so only Poke (with the token) can call it
 - Token can be passed as `?token=...` query param OR `Authorization: Bearer ...` header
 - Limit `POKECLAW_ROOTS` to folders Poke actually needs
-- Stop cloudflared or the server anytime to instantly revoke all access
+- Stop Poke tunnel or the server anytime to instantly revoke all access
 - Dangerous commands (`rm -rf /`, `sudo rm`, fork bombs) are blocked in code
 
 ---
@@ -284,14 +265,14 @@ systemctl --user enable --now pokeclaw
 | Problem | Fix |
 |---|---|
 | "port already in use" | Set `POKECLAW_PORT=3742` (or any free port) |
-| Poke says "connection refused" | Make sure both `server.ts` AND cloudflared are running |
-| cloudflared URL changes | This is expected in ephemeral mode. For a stable URL, use `POKECLAW_TUNNEL_MODE=persistent` with a named tunnel and custom domain. |
+| Poke says "connection refused" | Make sure both `server.ts` AND Poke tunnel are running |
+| Poke tunnel URL changes | This is expected in ephemeral mode. For a stable URL, use `POKECLAW_TUNNEL_MODE=persistent` with a named tunnel and custom domain. |
 | Permission denied on a file | Add its parent directory to `POKECLAW_ROOTS` |
 | Command times out | Pass `timeout_ms` in your request to Poke |
 | Bun not found after install | Run `source ~/.zshrc` (macOS) or `source ~/.bashrc` (Linux), or open a new terminal |
 | Poke rejects the URL | Use the `?token=` query parameter format instead of the Authorization header |
 | Linux: `lsb_release` not found | Install with `sudo apt install lsb-release` or `sudo dnf install redhat-lsb-core` |
-| Linux: cloudflared not in repo | Install the binary directly from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/ |
+| Linux: Poke tunnel not in repo | Install the binary directly from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/ |
 
 For a permanent (stable) tunnel URL, create a named Cloudflare tunnel:
 https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/
