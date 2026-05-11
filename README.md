@@ -15,11 +15,6 @@ By default, Poke lives in the cloud and doesn't have access to files on your com
 
 PokeClaw works on **macOS** (any Mac) and **Linux** (Debian/Ubuntu, Fedora/RHEL, Arch, and compatible distributions).
 
-### Native Mac companion
-
-A native SwiftUI companion now lives in `native-mac/` and gives PokeClaw a Mac-first surface for menu bar access, login startup, notifications, and log export.
-
-
 ---
 
 ## Tools available when PokeClaw is active
@@ -99,13 +94,14 @@ mkdir -p ~/pokeclaw
 cp server.ts ~/pokeclaw/server.ts
 cd ~/pokeclaw
 bun init -y
-bun add glob
 ```
+
+PokeClaw uses only built-in Node/Bun modules, so there is no extra runtime dependency to install for the current server.
 
 Or with npm:
 
 ```bash
-npm init -y && npm install glob && npm install -D typescript @types/node
+npm init -y && npm install -D typescript @types/node
 ```
 
 ### Step 2 — Configure environment variables
@@ -283,7 +279,6 @@ This branch includes:
 - a new `system_info` MCP tool for quick runtime diagnostics
 - `/health` now returns auth and root-count details
 - `POKECLAW_LOG_LEVEL` for quieter or more verbose logs
-- a native macOS companion with menu bar status, auto-start on login, notifications, and log export
 
 ---
 
