@@ -15,6 +15,33 @@ By default, Poke lives in the cloud and doesn't have access to files on your com
 
 PokeClaw works on **macOS** (any Mac) and **Linux** (Debian/Ubuntu, Fedora/RHEL, Arch, and compatible distributions).
 
+### Persistent Cloudflare Tunnel (recommended)
+
+If you want a stable public URL instead of a new trycloudflare URL on every launch, create a named tunnel once and route it to a custom domain:
+
+```bash
+cloudflared tunnel login
+cloudflared tunnel create pokeclaw
+cloudflared tunnel route dns pokeclaw pokeclaw.example.com
+```
+
+Then set these environment variables before launching PokeClaw:
+
+```bash
+export POKECLAW_TUNNEL_MODE=persistent
+export POKECLAW_TUNNEL_ID="<your-tunnel-uuid>"
+export POKECLAW_TUNNEL_HOSTNAME="pokeclaw.example.com"
+export POKECLAW_TUNNEL_CREDENTIALS="$HOME/.cloudflared/<your-tunnel-uuid>.json"
+export POKECLAW_TUNNEL_CONFIG="$HOME/.config/pokeclaw/cloudflared.yml"
+```
+
+The start scripts will reuse or generate the Cloudflare config and keep the public MCP URL stable across restarts.
+
+### Native Mac companion
+
+A native SwiftUI companion now lives in `native-mac/` and gives PokeClaw a Mac-first surface for menu bar access, login startup, notifications, and log export.
+
+
 ---
 
 ## Tools available when PokeClaw is active
@@ -47,7 +74,7 @@ The script will:
 2. **Install Bun** (preferred) or use Node.js if already installed
 3. **Install cloudflared** via Homebrew if not present
 4. **Install dependencies**
-5. **Guide you through configuration** — port, allowed folders, auth token
+5. **Guide you through configuration** — port, allowed folders, auth token, and optional persistent tunnel settings
 6. **Optionally save settings** to `~/.zshrc` for future sessions
 7. **Launch the server and cloudflared tunnel**, then print your public MCP URL
 
@@ -96,13 +123,13 @@ cd ~/pokeclaw
 bun init -y
 ```
 
-PokeClaw uses only built-in Node/Bun modules, so there is no extra runtime dependency to install for the current server.
-
 Or with npm:
 
 ```bash
 npm init -y && npm install -D typescript @types/node
 ```
+
+PokeClaw uses only built-in Node/Bun modules, so there is no extra runtime dependency to install for the current server.
 
 ### Step 2 — Configure environment variables
 
@@ -161,6 +188,7 @@ cloudflared tunnel --url http://127.0.0.1:3741
 3. Name: `PokeClaw`
 4. URL: `https://random-words.trycloudflare.com/mcp?token=your-secret-token-here`
    - The token is passed as a query parameter — **no Authorization header needed**
+   - If you use a persistent tunnel, replace the random trycloudflare URL with your stable hostname, e.g. `https://pokeclaw.example.com/mcp?token=your-secret-token-here`
    - If you did not set a token, use: `https://random-words.trycloudflare.com/mcp`
 5. Save — Poke will verify the connection
 6. Test it: tell Poke "use PokeClaw to list my Desktop files"
@@ -257,7 +285,7 @@ systemctl --user enable --now pokeclaw
 |---|---|
 | "port already in use" | Set `POKECLAW_PORT=3742` (or any free port) |
 | Poke says "connection refused" | Make sure both `server.ts` AND cloudflared are running |
-| cloudflared URL changes | Restart → get new URL → update in [Poke settings](https://poke.com/settings/integrations) |
+| cloudflared URL changes | This is expected in ephemeral mode. For a stable URL, use `POKECLAW_TUNNEL_MODE=persistent` with a named tunnel and custom domain. |
 | Permission denied on a file | Add its parent directory to `POKECLAW_ROOTS` |
 | Command times out | Pass `timeout_ms` in your request to Poke |
 | Bun not found after install | Run `source ~/.zshrc` (macOS) or `source ~/.bashrc` (Linux), or open a new terminal |
@@ -267,6 +295,8 @@ systemctl --user enable --now pokeclaw
 
 For a permanent (stable) tunnel URL, create a named Cloudflare tunnel:
 https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/
+
+The repository now supports this via `POKECLAW_TUNNEL_MODE=persistent` plus `POKECLAW_TUNNEL_ID`, `POKECLAW_TUNNEL_HOSTNAME`, `POKECLAW_TUNNEL_CREDENTIALS`, and `POKECLAW_TUNNEL_CONFIG`.
 
 ---
 
@@ -279,6 +309,7 @@ This branch includes:
 - a new `system_info` MCP tool for quick runtime diagnostics
 - `/health` now returns auth and root-count details
 - `POKECLAW_LOG_LEVEL` for quieter or more verbose logs
+- a native macOS companion with menu bar status, auto-start on login, notifications, and log export
 
 ---
 
