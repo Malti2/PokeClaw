@@ -632,21 +632,19 @@ if (launchState.config.tunnel.enabled) {
   saveLaunchConfig(launchState.config);
 }
 
-const shutdown = () => {
+const shutdown = async () => {
   try {
-    void activeTunnelProcess?.stop();
+    await activeTunnelProcess?.stop();
   } catch {
     // ignore
   }
 };
 
 process.on("SIGINT", () => {
-  shutdown();
-  process.exit(0);
+  void shutdown().finally(() => process.exit(0));
 });
 process.on("SIGTERM", () => {
-  shutdown();
-  process.exit(0);
+  void shutdown().finally(() => process.exit(0));
 });
 
 server.listen(PORT, "127.0.0.1", () => {
