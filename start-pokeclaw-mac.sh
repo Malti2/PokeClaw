@@ -207,7 +207,7 @@ create_named_tunnel() {
 
 run_tunnel() {
   local tunnel_cmd
-  if [[ "${TUNNEL_MODE,,}" == "named" ]]; then
+  if [[ "$(printf %s "$TUNNEL_MODE" | tr '[:upper:]' '[:lower:]')" == "named" ]]; then
     create_named_tunnel
     tunnel_cmd=(tunnel --config "$TUNNEL_CONFIG_FILE" run "$TUNNEL_NAME")
   else
