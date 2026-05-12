@@ -50,15 +50,13 @@ jobs:
 
           ls -lh "$MAC_ZIP" "$LINUX_ZIP"
 
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
-          gh release create "$TAG" \
-            "PokeClaw-macos-${TAG}.zip" \
-            "PokeClaw-linux-${TAG}.zip" \
-            --title "PokeClaw ${TAG}" \
-            --notes "Automated release for tag ${TAG}." \
-            --target "$GITHUB_SHA"
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: PokeClaw ${{ github.ref_name }}
+          body: Automated release for tag ${{ github.ref_name }}.
+          target_commitish: ${{ github.sha }}
+          files: |
+            PokeClaw-macos-${{ github.ref_name }}.zip
+            PokeClaw-linux-${{ github.ref_name }}.zip
