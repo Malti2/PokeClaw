@@ -56,6 +56,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: PokeClaw ${{ github.ref_name }}
           body: Automated release for tag ${{ github.ref_name }}.
+          append_body: true
           target_commitish: ${{ github.sha }}
           files: |
             PokeClaw-macos-${{ github.ref_name }}.zip
