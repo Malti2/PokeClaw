@@ -202,7 +202,7 @@ create_named_tunnel() {
     fi
   fi
 
-  echo "✅  PokeClaw is ready"
+  echo "✅  PokeClaw tunnel ready"
 }
 
 run_tunnel() {
@@ -215,7 +215,7 @@ run_tunnel() {
   fi
 
   echo ""
-  echo "🔗  PokeClaw is live"
+  echo "🔗  PokeClaw tunnel ready"
   "$CLOUDflared" "${tunnel_cmd[@]}"
 }
 
