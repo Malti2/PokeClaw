@@ -11,7 +11,7 @@
 ##   POKECLAW_TOKEN           — secret auth token
 ##   POKECLAW_TUNNEL_ENABLED  — 1 to enable cloudflared tunnel
 ##   POKECLAW_TUNNEL_MODE     — quick | named (default: quick)
-##   POKECLAW_TUNNEL_NAME     — tunnel name for named mode (default: poke-gate)
+##   POKECLAW_TUNNEL_NAME     — tunnel name for named mode (default: PokeTunnel)
 ##   POKECLAW_TUNNEL_HOSTNAME — optional DNS hostname for named mode
 ##
 set -euo pipefail
@@ -19,13 +19,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="$HOME/.pokeclaw"
 CONFIG_FILE="$CONFIG_DIR/launch.env"
-TUNNEL_CONFIG_FILE="$CONFIG_DIR/poke-gate.yaml"
+TUNNEL_CONFIG_FILE="$CONFIG_DIR/PokeTunnel.yaml"
 PORT="${POKECLAW_PORT:-3741}"
 ROOTS="${POKECLAW_ROOTS:-$HOME}"
 TOKEN="${POKECLAW_TOKEN:-}"
 TUNNEL_ENABLED="${POKECLAW_TUNNEL_ENABLED:-}"
 TUNNEL_MODE="${POKECLAW_TUNNEL_MODE:-quick}"
-TUNNEL_NAME="${POKECLAW_TUNNEL_NAME:-poke-gate}"
+TUNNEL_NAME="${POKECLAW_TUNNEL_NAME:-PokeTunnel}"
 TUNNEL_HOSTNAME="${POKECLAW_TUNNEL_HOSTNAME:-}"
 QUIET=false
 RUNTIME=""
@@ -49,7 +49,7 @@ ROOTS="${POKECLAW_ROOTS:-${ROOTS:-$HOME}}"
 TOKEN="${POKECLAW_TOKEN:-${TOKEN:-}}"
 TUNNEL_ENABLED="${POKECLAW_TUNNEL_ENABLED:-${TUNNEL_ENABLED:-}}"
 TUNNEL_MODE="${POKECLAW_TUNNEL_MODE:-${TUNNEL_MODE:-quick}}"
-TUNNEL_NAME="${POKECLAW_TUNNEL_NAME:-${TUNNEL_NAME:-poke-gate}}"
+TUNNEL_NAME="${POKECLAW_TUNNEL_NAME:-${TUNNEL_NAME:-PokeTunnel}}"
 TUNNEL_HOSTNAME="${POKECLAW_TUNNEL_HOSTNAME:-${TUNNEL_HOSTNAME:-}}"
 
 save_config() {
@@ -252,7 +252,7 @@ create_named_tunnel() {
     fi
   fi
 
-  echo "✅  poke-gate tunnel ready (${TUNNEL_NAME})"
+  echo "✅  PokeTunnel ready (${TUNNEL_NAME})"
 }
 
 run_tunnel() {
@@ -305,7 +305,7 @@ if [ "$QUIET" = false ]; then
     TOKEN="$(prompt '   Auth token (recommended — press Enter to skip)' "")"
   fi
 
-  if confirm '   Enable poke-gate tunnel' Y; then
+  if confirm '   Enable PokeTunnel' Y; then
     TUNNEL_ENABLED=1
     if confirm '   Use named tunnel mode' N; then
       TUNNEL_MODE="named"
