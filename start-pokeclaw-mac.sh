@@ -2,35 +2,235 @@
 ## PokeClaw — macOS Onboarding & Launch Script
 ##
 ## Usage:
-##   bash start-pokeclaw-mac.sh            # full interactive onboarding
-##   bash start-pokeclaw-mac.sh --quiet    # skip prompts, use env vars / defaults
+##   bash start-pokeclaw-mac.sh            # interactive setup
+##   bash start-pokeclaw-mac.sh --quiet    # skip prompts, use env vars / saved config
 ##
 ## Environment variables (all optional):
-##   POKECLAW_PORT   — port (default: 3741)
-##   POKECLAW_TOKEN  — secret auth token
-##   POKECLAW_ROOTS  — comma-separated allowed paths (default: $HOME)
+##   POKECLAW_PORT            — port (default: 3741)
+##   POKECLAW_ROOTS           — comma-separated allowed paths (default: $HOME)
+##   POKECLAW_TOKEN           — secret auth token
+##   POKECLAW_TUNNEL_ENABLED  — 1 to enable cloudflared tunnel
+##   POKECLAW_TUNNEL_MODE     — quick | named (default: quick)
+##   POKECLAW_TUNNEL_NAME     — tunnel name for named mode (default: poke-gate)
+##   POKECLAW_TUNNEL_HOSTNAME — optional DNS hostname for named mode
 ##
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TUNNEL_LOG="${SCRIPT_DIR}/pokeclaw.log"
+CONFIG_DIR="$HOME/.pokeclaw"
+CONFIG_FILE="$CONFIG_DIR/launch.env"
+TUNNEL_CONFIG_FILE="$CONFIG_DIR/poke-gate.yaml"
 PORT="${POKECLAW_PORT:-3741}"
+ROOTS="${POKECLAW_ROOTS:-$HOME}"
+TOKEN="${POKECLAW_TOKEN:-}"
+TUNNEL_ENABLED="${POKECLAW_TUNNEL_ENABLED:-}"
+TUNNEL_MODE="${POKECLAW_TUNNEL_MODE:-quick}"
+TUNNEL_NAME="${POKECLAW_TUNNEL_NAME:-poke-gate}"
+TUNNEL_HOSTNAME="${POKECLAW_TUNNEL_HOSTNAME:-}"
 QUIET=false
+RUNTIME=""
+SERVER_PID=""
+TUNNEL_PID=""
+CLOUDflared=""
 
-# ── Parse flags ────────────────────────────────────────────────────────────────
 for arg in "$@"; do
   case "$arg" in
     --quiet|-q) QUIET=true ;;
   esac
 done
 
-# ── Banner ─────────────────────────────────────────────────────────────────────
+if [ -f "$CONFIG_FILE" ]; then
+  # shellcheck disable=SC1090
+  source "$CONFIG_FILE"
+fi
+
+PORT="${POKECLAW_PORT:-${PORT:-3741}}"
+ROOTS="${POKECLAW_ROOTS:-${ROOTS:-$HOME}}"
+TOKEN="${POKECLAW_TOKEN:-${TOKEN:-}}"
+TUNNEL_ENABLED="${POKECLAW_TUNNEL_ENABLED:-${TUNNEL_ENABLED:-}}"
+TUNNEL_MODE="${POKECLAW_TUNNEL_MODE:-${TUNNEL_MODE:-quick}}"
+TUNNEL_NAME="${POKECLAW_TUNNEL_NAME:-${TUNNEL_NAME:-poke-gate}}"
+TUNNEL_HOSTNAME="${POKECLAW_TUNNEL_HOSTNAME:-${TUNNEL_HOSTNAME:-}}"
+
+save_config() {
+  mkdir -p "$CONFIG_DIR"
+  {
+    printf 'export POKECLAW_PORT=%q\n' "$PORT"
+    printf 'export POKECLAW_ROOTS=%q\n' "$ROOTS"
+    printf 'export POKECLAW_TOKEN=%q\n' "$TOKEN"
+    printf 'export POKECLAW_TUNNEL_ENABLED=%q\n' "$TUNNEL_ENABLED"
+    printf 'export POKECLAW_TUNNEL_MODE=%q\n' "$TUNNEL_MODE"
+    printf 'export POKECLAW_TUNNEL_NAME=%q\n' "$TUNNEL_NAME"
+    printf 'export POKECLAW_TUNNEL_HOSTNAME=%q\n' "$TUNNEL_HOSTNAME"
+  } > "$CONFIG_FILE"
+}
+
+prompt() {
+  local message="$1"
+  local default_value="${2:-}"
+  local input=""
+  if [ -n "$default_value" ]; then
+    read -r -p "${message} [${default_value}]: " input
+  else
+    read -r -p "${message}: " input
+  fi
+  printf '%s' "${input:-$default_value}"
+}
+
+confirm() {
+  local message="$1"
+  local default_value="${2:-Y}"
+  local suffix="[Y/n]"
+  local input=""
+  if [[ "${default_value^^}" == N* ]]; then
+    suffix="[y/N]"
+  fi
+  read -r -p "${message} ${suffix}: " input
+  input="${input:-$default_value}"
+  [[ "${input,,}" =~ ^y(es)?$ ]]
+}
+
+ensure_runtime() {
+  if command -v bun >/dev/null 2>&1; then
+    RUNTIME="bun"
+    echo "✅  Bun $(bun --version) already installed"
+  elif command -v node >/dev/null 2>&1; then
+    RUNTIME="node"
+    echo "✅  Node $(node --version) found — will use node"
+  else
+    echo ""
+    echo "Step 2 — Installing Bun…"
+    curl -fsSL https://bun.sh/install | bash
+    export PATH="$HOME/.bun/bin:$PATH"
+    if command -v bun >/dev/null 2>&1; then
+      RUNTIME="bun"
+      echo "✅  Bun installed"
+    else
+      echo "⚠️   Bun needs a new shell. Falling back to node…"
+      RUNTIME="node"
+    fi
+  fi
+}
+
+ensure_cloudflared() {
+  if command -v cloudflared >/dev/null 2>&1; then
+    CLOUDflared="$(command -v cloudflared)"
+    echo "✅  cloudflared already installed"
+    return
+  fi
+
+  echo ""
+  echo "Step 3 — Installing cloudflared…"
+  brew install cloudflared
+  CLOUDflared="$(command -v cloudflared)"
+  echo "✅  cloudflared installed"
+}
+
+ensure_dependencies() {
+  cd "$SCRIPT_DIR"
+  if [ "$RUNTIME" = "node" ]; then
+    if [ ! -d "$SCRIPT_DIR/node_modules" ] || [ ! -x "$SCRIPT_DIR/node_modules/.bin/ts-node" ]; then
+      echo "Step 4 — Installing node dependencies…"
+      npm init -y >/dev/null 2>&1 || true
+      npm install ts-node typescript @types/node >/dev/null
+      echo "✅  Dependencies installed"
+    else
+      echo "✅  Dependencies already present"
+    fi
+  fi
+}
+
+launch_server() {
+  if [ "$RUNTIME" = "bun" ]; then
+    POKECLAW_DISABLE_STDIN=1 POKECLAW_PORT="$PORT" POKECLAW_ROOTS="$ROOTS" POKECLAW_TOKEN="$TOKEN" \
+      bun run "$SCRIPT_DIR/server.ts" &
+  else
+    POKECLAW_DISABLE_STDIN=1 POKECLAW_PORT="$PORT" POKECLAW_ROOTS="$ROOTS" POKECLAW_TOKEN="$TOKEN" \
+      npx ts-node --transpile-only "$SCRIPT_DIR/server.ts" &
+  fi
+  SERVER_PID=$!
+}
+
+find_port_pid() {
+  local pid=""
+  pid="$(lsof -ti tcp:"${PORT}" 2>/dev/null | head -n1 || true)"
+  if [ -z "$pid" ]; then
+    pid="$(fuser "${PORT}/tcp" 2>/dev/null | awk '{print $1}' | head -n1 || true)"
+  fi
+  printf '%s' "$pid"
+}
+
+write_tunnel_config() {
+  local tunnel_id="$1"
+  local credentials_file="$2"
+  mkdir -p "$CONFIG_DIR"
+  cat > "$TUNNEL_CONFIG_FILE" <<YAML
+tunnel: ${tunnel_id}
+credentials-file: ${credentials_file}
+ingress:
+  - service: http://127.0.0.1:${PORT}
+  - service: http_status:404
+YAML
+}
+
+create_named_tunnel() {
+  local output tunnel_id credentials_file route_output
+  output="$($CLOUDflared tunnel create "$TUNNEL_NAME" 2>&1 || true)"
+  tunnel_id="$(printf '%s\n' "$output" | grep -Eo '[0-9a-f]{8}-[0-9a-f-]{27,}' | head -n1 || true)"
+  credentials_file="$(printf '%s\n' "$output" | sed -nE 's/.*(\/[^[:space:]]+\.json).*/\1/p' | head -n1 || true)"
+
+  if [ -z "$tunnel_id" ]; then
+    echo "❌  Could not create or detect the named tunnel id for ${TUNNEL_NAME}."
+    echo "$output"
+    exit 1
+  fi
+
+  if [ -z "$credentials_file" ]; then
+    credentials_file="$CONFIG_DIR/${TUNNEL_NAME}.json"
+  fi
+
+  write_tunnel_config "$tunnel_id" "$credentials_file"
+
+  if [ -n "$TUNNEL_HOSTNAME" ]; then
+    route_output="$($CLOUDflared tunnel route dns "$TUNNEL_NAME" "$TUNNEL_HOSTNAME" 2>&1 || true)"
+    if [ -n "$route_output" ]; then
+      echo "$route_output"
+    fi
+  fi
+
+  echo "✅  poke-gate tunnel ready (${TUNNEL_NAME})"
+}
+
+run_tunnel() {
+  local tunnel_cmd
+  if [[ "${TUNNEL_MODE,,}" == "named" ]]; then
+    create_named_tunnel
+    tunnel_cmd=(tunnel --config "$TUNNEL_CONFIG_FILE" run "$TUNNEL_NAME")
+  else
+    tunnel_cmd=(tunnel --url "http://127.0.0.1:${PORT}")
+  fi
+
+  echo ""
+  echo "🔗  Starting tunnel (${TUNNEL_MODE})…"
+  "$CLOUDflared" "${tunnel_cmd[@]}"
+}
+
+cleanup() {
+  if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+    kill "$SERVER_PID" 2>/dev/null || true
+  fi
+  if [ -n "${TUNNEL_PID:-}" ] && kill -0 "$TUNNEL_PID" 2>/dev/null; then
+    kill "$TUNNEL_PID" 2>/dev/null || true
+  fi
+}
+
+trap cleanup EXIT INT TERM
+
 echo ""
 echo "🐾  PokeClaw — macOS Setup & Launch"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# ── Step 1: Homebrew ───────────────────────────────────────────────────────────
-if command -v brew &>/dev/null; then
+if command -v brew >/dev/null 2>&1; then
   echo "✅  Homebrew already installed"
 else
   if [ "$QUIET" = true ]; then
@@ -41,257 +241,70 @@ else
   echo ""
   echo "Step 1 — Installing Homebrew…"
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  # Apple Silicon: add brew to PATH
   if [ -f /opt/homebrew/bin/brew ]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
-    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
+    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile" 2>/dev/null || true
   fi
   echo "✅  Homebrew installed"
 fi
 
-# ── Step 2: Runtime (Bun preferred) ───────────────────────────────────────────
-if command -v bun &>/dev/null; then
-  RUNTIME="bun"
-  echo "✅  Bun $(bun --version) already installed"
-elif command -v node &>/dev/null; then
-  RUNTIME="node"
-  echo "✅  Node $(node --version) found — will use node"
-else
-  echo ""
-  echo "Step 2 — Installing Bun…"
-  curl -fsSL https://bun.sh/install | bash
-  export PATH="$HOME/.bun/bin:$PATH"
-  if command -v bun &>/dev/null; then
-    RUNTIME="bun"
-    echo "✅  Bun installed"
-  else
-    echo "⚠️   Bun needs a new shell. Falling back to node…"
-    RUNTIME="node"
-  fi
-fi
+ensure_runtime
+ensure_cloudflared
+ensure_dependencies
 
-# ── Step 3: cloudflared ────────────────────────────────────────────────────────
-if command -v cloudflared &>/dev/null; then
-  echo "✅  cloudflared already installed"
-else
-  echo ""
-  echo "Step 3 — Installing cloudflared…"
-  brew install cloudflared
-  echo "✅  cloudflared installed"
-fi
-
-# ── Step 4: npm dependencies (only needed for node runtime) ───────────────────
-cd "$SCRIPT_DIR"
-if [ "$RUNTIME" = "bun" ]; then
-  if [ ! -d "$SCRIPT_DIR/node_modules" ]; then
-    echo "Step 4 — Installing bun dependencies…"
-    bun add glob 2>/dev/null || true
-    echo "✅  Dependencies ready"
-  else
-    echo "✅  Dependencies already present"
-  fi
-else
-  if [ ! -d "$SCRIPT_DIR/node_modules" ]; then
-    echo "Step 4 — Installing npm dependencies…"
-    npm init -y >/dev/null 2>&1 || true
-    npm install glob
-    npm install -D typescript @types/node
-    echo "✅  Dependencies installed"
-  else
-    echo "✅  Dependencies already present"
-  fi
-fi
-
-# ── Step 5: Interactive configuration ─────────────────────────────────────────
 if [ "$QUIET" = false ]; then
   echo ""
   echo "Step 5 — Configuration"
   echo "────────────────────────────────────────"
 
-  # Port
-  read -r -p "   Port [${PORT}]: " _input
-  [ -n "$_input" ] && PORT="$_input"
-
-  # Allowed roots
-  _default_roots="${POKECLAW_ROOTS:-$HOME}"
-  read -r -p "   Allowed folders (comma-separated) [${_default_roots}]: " _input
-  POKECLAW_ROOTS="${_input:-$_default_roots}"
-
-  # Token
-  _cur_token="${POKECLAW_TOKEN:-}"
-  if [ -n "$_cur_token" ]; then
-    read -r -p "   Auth token (leave blank to keep existing): " _input
-    POKECLAW_TOKEN="${_input:-$_cur_token}"
+  PORT="$(prompt '   Port' "$PORT")"
+  ROOTS="$(prompt '   Allowed folders (comma-separated)' "$ROOTS")"
+  if [ -n "$TOKEN" ]; then
+    TOKEN="$(prompt '   Auth token (leave blank to keep existing)' "$TOKEN")"
   else
-    read -r -p "   Auth token (recommended — press Enter to skip): " POKECLAW_TOKEN
+    TOKEN="$(prompt '   Auth token (recommended — press Enter to skip)' "")"
   fi
 
-  # Persist to ~/.zshrc?
-  echo ""
-  read -r -p "   Save settings to ~/.zshrc? [Y/n]: " _save
-  _save="${_save:-Y}"
-  if [[ "$_save" =~ ^[Yy]$ ]]; then
-    # Remove old PokeClaw block if present
-    if grep -q "# PokeClaw — start" "$HOME/.zshrc" 2>/dev/null; then
-      sed -i '' '/# PokeClaw — start/,/# PokeClaw — end/d' "$HOME/.zshrc"
+  if confirm '   Enable poke-gate tunnel' Y; then
+    TUNNEL_ENABLED=1
+    if confirm '   Use named tunnel mode' N; then
+      TUNNEL_MODE="named"
+      TUNNEL_NAME="$(prompt '   Tunnel name' "$TUNNEL_NAME")"
+      TUNNEL_HOSTNAME="$(prompt '   Hostname for the named tunnel (optional)' "$TUNNEL_HOSTNAME")"
+    else
+      TUNNEL_MODE="quick"
     fi
-    {
-      echo ""
-      echo "# PokeClaw — start"
-      echo "export POKECLAW_PORT=\"${PORT}\""
-      echo "export POKECLAW_ROOTS=\"${POKECLAW_ROOTS}\""
-      [ -n "${POKECLAW_TOKEN:-}" ] && echo "export POKECLAW_TOKEN=\"${POKECLAW_TOKEN}\""
-      echo "# PokeClaw — end"
-    } >> "$HOME/.zshrc"
-    echo "✅  Settings saved to ~/.zshrc"
-  fi
-
-  export POKECLAW_PORT="$PORT"
-  export POKECLAW_ROOTS="${POKECLAW_ROOTS:-$HOME}"
-  export POKECLAW_TOKEN="${POKECLAW_TOKEN:-}"
-
-else
-  # Quiet mode — use whatever is already exported
-  echo "⚡  Quiet mode — using existing environment"
-  echo "   POKECLAW_PORT  = ${POKECLAW_PORT:-3741}"
-  echo "   POKECLAW_ROOTS = ${POKECLAW_ROOTS:-$HOME}"
-  if [ -n "${POKECLAW_TOKEN:-}" ]; then
-    echo "   POKECLAW_TOKEN = (set)"
   else
-    echo "   POKECLAW_TOKEN = (not set)"
+    TUNNEL_ENABLED=0
   fi
+
+  save_config
+else
+  echo "⚡  Quiet mode — using existing environment and saved config"
+  echo "   POKECLAW_PORT          = ${PORT:-3741}"
+  echo "   POKECLAW_ROOTS         = ${ROOTS:-$HOME}"
+  echo "   POKECLAW_TOKEN         = $([ -n "$TOKEN" ] && echo '(set)' || echo '(not set)')"
+  echo "   POKECLAW_TUNNEL_ENABLED = ${TUNNEL_ENABLED:-0}"
+  echo "   POKECLAW_TUNNEL_MODE    = ${TUNNEL_MODE:-quick}"
 fi
 
-
-# ── Persistent Cloudflare tunnel helpers ─────────────────────────────────────
-_write_persistent_tunnel_config() {
-  local config_file="$1"
-  local tunnel_id="$2"
-  local credentials_file="$3"
-  local hostname="$4"
-
-  mkdir -p "$(dirname "$config_file")"
-  cat >"$config_file" <<EOF
-tunnel: ${tunnel_id}
-credentials-file: ${credentials_file}
-ingress:
-  - hostname: ${hostname}
-    service: http://127.0.0.1:${PORT}
-  - service: http_status:404
-EOF
-}
-
-_resolve_persistent_tunnel_url() {
-  if [ -n "${POKECLAW_TUNNEL_PUBLIC_URL:-}" ]; then
-    echo "${POKECLAW_TUNNEL_PUBLIC_URL}"
-  elif [ -n "${POKECLAW_TUNNEL_HOSTNAME:-}" ]; then
-    echo "https://${POKECLAW_TUNNEL_HOSTNAME}"
-  elif [ -n "${POKECLAW_TUNNEL_CONFIG:-}" ] && [ -f "${POKECLAW_TUNNEL_CONFIG:-}" ]; then
-    local _host
-    _host=$(grep -m1 'hostname:' "${POKECLAW_TUNNEL_CONFIG}" 2>/dev/null | awk '{print $2}' || true)
-    [ -n "$_host" ] && echo "https://${_host}"
-  fi
-}
-# ── Step 6: Kill any process already on the port ──────────────────────────────
-_existing=$(lsof -ti tcp:"${PORT}" 2>/dev/null || true)
-if [ -n "$_existing" ]; then
+existing_pid="$(find_port_pid)"
+if [ -n "$existing_pid" ]; then
   echo ""
-  echo "⚠️   Port ${PORT} in use — killing PID ${_existing}…"
-  kill "$_existing" 2>/dev/null || true
+  echo "⚠️   Port ${PORT} in use — killing PID ${existing_pid}…"
+  kill "$existing_pid" 2>/dev/null || true
   sleep 1
 fi
 
-# ── Step 7: Start PokeClaw server ─────────────────────────────────────────────
-echo ""
-echo "🚀  Starting PokeClaw on port ${PORT}…"
+launch_server
+sleep 1
 
-if [ "$RUNTIME" = "bun" ]; then
-  bun run "$SCRIPT_DIR/server.ts" &
+echo ""
+echo "🚀  PokeClaw server is running on port ${PORT}"
+echo "    Local URL: http://127.0.0.1:${PORT}/mcp"
+if [ "$TUNNEL_ENABLED" = "1" ]; then
+  run_tunnel
 else
-  npx ts-node "$SCRIPT_DIR/server.ts" &
+  echo "    Tunnel   : disabled"
+  wait "$SERVER_PID"
 fi
-SERVER_PID=$!
-
-sleep 2
-if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-  echo "❌  Server failed to start. Check logs above."
-  exit 1
-fi
-echo "✅  Server running (PID ${SERVER_PID})"
-
-# ── Step 8: Start cloudflared tunnel ──────────────────────────────────────────
-echo "🌐  Starting cloudflared tunnel…"
-echo "    (logs → ${TUNNEL_LOG})"
-rm -f "$TUNNEL_LOG"
-
-USE_PERSISTENT_TUNNEL=false
-if [ "${POKECLAW_TUNNEL_MODE:-ephemeral}" = "persistent" ] || [ -n "${POKECLAW_TUNNEL_CONFIG:-}" ] || [ -n "${POKECLAW_TUNNEL_ID:-}" ] || [ -n "${POKECLAW_TUNNEL_HOSTNAME:-}" ]; then
-  USE_PERSISTENT_TUNNEL=true
-fi
-
-TUNNEL_URL=""
-if [ "$USE_PERSISTENT_TUNNEL" = true ]; then
-  if [ -z "${POKECLAW_TUNNEL_CONFIG:-}" ]; then
-    POKECLAW_TUNNEL_CONFIG="$DEFAULT_TUNNEL_CONFIG"
-  fi
-
-  if [ -z "${POKECLAW_TUNNEL_ID:-}" ] || [ -z "${POKECLAW_TUNNEL_HOSTNAME:-}" ] || [ -z "${POKECLAW_TUNNEL_CREDENTIALS:-}" ]; then
-    echo "❌  Persistent tunnel mode needs POKECLAW_TUNNEL_ID, POKECLAW_TUNNEL_HOSTNAME, and POKECLAW_TUNNEL_CREDENTIALS."
-    exit 1
-  fi
-
-  if [ ! -f "$POKECLAW_TUNNEL_CONFIG" ]; then
-    _write_persistent_tunnel_config "$POKECLAW_TUNNEL_CONFIG" "$POKECLAW_TUNNEL_ID" "$POKECLAW_TUNNEL_CREDENTIALS" "$POKECLAW_TUNNEL_HOSTNAME"
-    echo "✅  Persistent tunnel config written to ${POKECLAW_TUNNEL_CONFIG}"
-  else
-    echo "✅  Using persistent tunnel config ${POKECLAW_TUNNEL_CONFIG}"
-  fi
-
-  cloudflared tunnel --config "$POKECLAW_TUNNEL_CONFIG" run >"$TUNNEL_LOG" 2>&1 &
-  TUNNEL_PID=$!
-  TUNNEL_URL="$(_resolve_persistent_tunnel_url)"
-else
-  cloudflared tunnel --url "http://127.0.0.1:${PORT}" >"$TUNNEL_LOG" 2>&1 &
-  TUNNEL_PID=$!
-
-  # Wait for tunnel URL to appear in log
-  for _i in {1..30}; do
-    sleep 1
-    TUNNEL_URL=$(grep -o 'https://[a-zA-Z0-9-]*\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | head -1 || true)
-    [ -n "$TUNNEL_URL" ] && break
-  done
-fi
-
-# ── Done ───────────────────────────────────────────────────────────────────────
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🐾  PokeClaw is ready!"
-echo ""
-if [ -n "$TUNNEL_URL" ]; then
-  echo "   Tunnel URL : ${TUNNEL_URL}"
-  if [ -n "${POKECLAW_TOKEN:-}" ]; then
-    echo "   MCP URL    : ${TUNNEL_URL}/mcp?token=${POKECLAW_TOKEN}"
-    echo ""
-    echo "   👆 Add this URL in Poke → Settings → Integrations → Add MCP Server"
-  else
-    echo "   MCP URL    : ${TUNNEL_URL}/mcp"
-    echo ""
-    echo "   👆 Add this URL in Poke → Settings → Integrations → Add MCP Server"
-    echo "   ⚠️   No token set — set POKECLAW_TOKEN to require authentication"
-  fi
-else
-  echo "   ⚠️   Could not determine tunnel URL automatically."
-  echo "   Check ${TUNNEL_LOG} for the cloudflared public URL."
-fi
-echo ""
-echo "   Server PID : ${SERVER_PID}"
-echo "   Tunnel PID : ${TUNNEL_PID}"
-echo "   Tunnel log : ${TUNNEL_LOG}"
-echo ""
-echo "   Stop with:  kill ${SERVER_PID} ${TUNNEL_PID}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-
-# Keep alive — Ctrl+C stops both processes cleanly
-trap "echo ''; echo '🛑 Stopping PokeClaw…'; kill ${SERVER_PID} ${TUNNEL_PID} 2>/dev/null; exit 0" INT TERM
-wait
