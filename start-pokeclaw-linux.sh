@@ -82,12 +82,16 @@ confirm() {
   local default_value="${2:-Y}"
   local suffix="[Y/n]"
   local input=""
-  if [[ "${default_value^^}" == N* ]]; then
+  local default_upper="$(printf %s "$default_value" | tr "[:lower:]" "[:upper:]" | cut -c1)"
+  if [ "$default_upper" = "N" ]; then
     suffix="[y/N]"
   fi
   read -r -p "${message} ${suffix}: " input
   input="${input:-$default_value}"
-  [[ "${input,,}" =~ ^y(es)?$ ]]
+  case "$(printf %s "$input" | tr "[:upper:]" "[:lower:]")" in
+    y|yes) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 ensure_pm() {
