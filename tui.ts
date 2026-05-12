@@ -6,6 +6,7 @@ import { PokeTunnel, getToken, isLoggedIn, login } from "poke";
 
 export interface TunnelState {
   enabled: boolean;
+  status: "disconnected" | "connecting" | "connected";
   connectionId?: string;
   publicUrl?: string;
 }
@@ -135,6 +136,20 @@ function normalizeRoots(raw: string, fallback: string[]): string[] {
   return roots.length ? roots : fallback;
 }
 
+function setTunnelStatus(config: PersistedLaunchConfig, status: TunnelState["status"]) {
+  config.tunnel.status = status;
+  saveLaunchConfig(config);
+}
+
+function describeTunnelState(config: PersistedLaunchConfig): string {
+  if (!config.tunnel.enabled) return "disabled";
+  if (config.tunnel.status === "connected" && config.tunnel.publicUrl) {
+    return "connected (" + (config.tunnel.connectionId ?? config.tunnel.publicUrl) + ")";
+  }
+  if (config.tunnel.status === "connecting") return "connecting";
+  return "disconnected";
+}
+
 export function loadLaunchConfig(defaults: { port: number; roots: string[]; token: string }): PersistedLaunchConfig {
   const saved = readJson<Partial<PersistedLaunchConfig>>(CONFIG_FILE) ?? {};
   const roots = parseRoots(saved.roots ?? defaults.roots);
@@ -151,6 +166,7 @@ export function loadLaunchConfig(defaults: { port: number; roots: string[]; toke
     tunnel: {
       enabled: tunnel.enabled ?? false,
       connectionId: safeTrim(tunnel.connectionId) || undefined,
+      status: tunnel.status === "connected" || tunnel.status === "connecting" ? tunnel.status : "disconnected",
       publicUrl: safeTrim(tunnel.publicUrl) || undefined,
     },
   };
@@ -177,11 +193,13 @@ async function ensurePokeAuth(): Promise<string> {
 function setTunnelConnection(config: PersistedLaunchConfig, connectionId: string) {
   config.tunnel.connectionId = connectionId;
   config.tunnel.publicUrl = `${DEFAULT_TUNNEL_BASE_URL}/${connectionId}`;
+  config.tunnel.status = "connected";
   saveLaunchConfig(config);
 }
 
 async function startTunnelProcess(config: PersistedLaunchConfig): Promise<{ stop: () => Promise<void> | void } | null> {
   if (!config.tunnel.enabled) return null;
+  setTunnelStatus(config, "connecting");
 
   const authToken = await ensurePokeAuth();
   const localMcpUrl = `http://127.0.0.1:${config.port}/mcp`;
@@ -194,14 +212,17 @@ async function startTunnelProcess(config: PersistedLaunchConfig): Promise<{ stop
 
   tunnel.on("connected", (info: { connectionId?: string }) => {
     if (info?.connectionId) setTunnelConnection(config, info.connectionId);
+    setTunnelStatus(config, "connected");
   });
 
   tunnel.on("disconnected", () => {
-    // The tunnel auto-reconnects inside the Poke SDK. We just keep the last stable URL in config.
+    setTunnelStatus(config, "disconnected");
+    // The Poke tunnel automatically retries after brief network drops.
   });
 
   tunnel.on("error", () => {
-    // Surface errors in the server logs; no special handling needed here.
+    setTunnelStatus(config, "disconnected");
+    // Surface errors in the server logs; the SDK will keep retrying.
   });
 
   const info = await tunnel.start();
@@ -223,7 +244,7 @@ async function editSettings(config: PersistedLaunchConfig): Promise<PersistedLau
         `Port: ${config.port}`,
         `Roots: ${config.roots.join(", ") || "(none)"}`,
         `Token: ${config.token ? "set" : "not set"}`,
-        `Poke tunnel: ${config.tunnel.enabled ? (config.tunnel.connectionId ? `enabled (${config.tunnel.connectionId})` : "enabled") : "disabled"}`,
+        `Poke tunnel: ${describeTunnelState(config)}`,
         "",
         "1) Change port",
         "2) Change roots",
@@ -277,7 +298,7 @@ async function runOnboarding(config: PersistedLaunchConfig): Promise<PersistedLa
       `Current port: ${config.port}`,
       `Current roots: ${config.roots.join(", ") || "(none)"}`,
       `Current token: ${config.token ? "set" : "not set"}`,
-      `Tunnel: ${config.tunnel.enabled ? "enabled" : "disabled"}`,
+      `Tunnel: ${describeTunnelState(config)}`,
     ], true));
 
     config.port = Number(await ask(rl, "Port", String(config.port))) || config.port;
