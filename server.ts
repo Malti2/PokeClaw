@@ -30,7 +30,6 @@ import type { IncomingMessage, ServerResponse } from "http";
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync } from "fs";
 import { execSync } from "child_process";
 import { resolve, join, dirname } from "path";
-import { resolveLaunchState, saveLaunchConfig } from "./tui.ts";
 import { homedir, hostname, platform, release, arch } from "os";
 
 const APP_NAME = "PokeClaw";
@@ -64,7 +63,6 @@ let serverListening = false;
 let connectionEstablished = false;
 let connectionEstablishedAt: number | null = null;
 let startupNotificationSent = false;
-let activeTunnelProcess: { stop: () => Promise<void> | void } | null = null;
 
 function timestamp() {
   return new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -618,33 +616,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   json(res, 404, { error: "Not found" });
 });
 
-const launchState = await resolveLaunchState({
-  port: PORT,
-  roots: ROOTS,
-  token: TOKEN,
-});
-
-PORT = launchState.config.port;
-TOKEN = launchState.config.token;
-ROOTS = launchState.config.roots;
-activeTunnelProcess = launchState.tunnelProcess;
-if (launchState.config.tunnel.enabled) {
-  saveLaunchConfig(launchState.config);
-}
-
-const shutdown = async () => {
-  try {
-    await activeTunnelProcess?.stop();
-  } catch {
-    // ignore
-  }
-};
-
 process.on("SIGINT", () => {
-  void shutdown().finally(() => process.exit(0));
+  process.exit(0);
 });
 process.on("SIGTERM", () => {
-  void shutdown().finally(() => process.exit(0));
+  process.exit(0);
 });
 
 server.listen(PORT, "127.0.0.1", () => {
@@ -659,9 +635,6 @@ server.listen(PORT, "127.0.0.1", () => {
   }
   emitConsole("stdout", `Roots  : ${ROOTS.join(", ")}`);
   emitConsole("stdout", `Tools  : ${TOOLS.map((tool) => tool.name).join(", ")}`);
-  if (launchState.tunnelSummary) {
-    emitConsole("stdout", `Tunnel : ${launchState.tunnelSummary}`);
-  }
   pushRecentLog(`[${timestamp()}] INFO server started on 127.0.0.1:${PORT}`);
   void notifyPokePlatform('server_started', {
     connection: statsPayload().connection,
