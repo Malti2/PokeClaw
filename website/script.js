@@ -8,9 +8,7 @@ const installClone = document.getElementById('installClone');
 const installRun = document.getElementById('installRun');
 
 async function copyInstallCommands() {
-  const commands = [installClone?.textContent?.trim(), installRun?.textContent?.trim()].filter(Boolean).join('
-
-');
+  const commands = [installClone?.textContent?.trim(), installRun?.textContent?.trim()].filter(Boolean).join('\n\n');
   if (!commands) return;
 
   try {
