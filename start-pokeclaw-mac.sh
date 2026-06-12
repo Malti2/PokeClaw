@@ -159,7 +159,7 @@ find_port_pid() {
 run_tunnel() {
   echo ""
   echo "🔗  Connecting to Poke tunnel..."
-  npx poke tunnel http://localhost:"$PORT"
+  npx poke tunnel http://localhost:"$PORT" --name pokeclaw
 }
 
 launch_menu_bar() {
