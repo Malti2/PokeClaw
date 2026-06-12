@@ -1,9 +1,9 @@
 #!/bin/bash
-## PokeClaw — macOS Onboarding & Launch Script
+## PokeClaw — Linux Onboarding & Launch Script
 ##
 ## Usage:
-##   bash start-pokeclaw-mac.sh            # interactive setup
-##   bash start-pokeclaw-mac.sh --quiet    # skip prompts, use env vars / saved config
+##   bash start-pokeclaw-linux.sh            # interactive setup
+##   bash start-pokeclaw-linux.sh --quiet    # skip prompts, use env vars / saved config
 ##
 ## Environment variables (all optional):
 ##   POKECLAW_PORT            — port (default: 3741)
@@ -30,8 +30,8 @@ TUNNEL_HOSTNAME="${POKECLAW_TUNNEL_HOSTNAME:-}"
 QUIET=false
 RUNTIME=""
 SERVER_PID=""
-TUNNEL_PID=""
 CLOUDflared=""
+PM="unknown"
 
 for arg in "$@"; do
   case "$arg" in
@@ -94,6 +94,28 @@ confirm() {
   esac
 }
 
+ensure_pm() {
+  if command -v apt-get >/dev/null 2>&1; then PM="apt"
+  elif command -v dnf >/dev/null 2>&1; then PM="dnf"
+  elif command -v pacman >/dev/null 2>&1; then PM="pacman"
+  else PM="unknown"
+  fi
+}
+
+ensure_pkg() {
+  local pkg="$1"
+  if command -v "$pkg" >/dev/null 2>&1; then
+    return
+  fi
+  echo "   Installing ${pkg}…"
+  case "$PM" in
+    apt) sudo apt-get update -qq >/dev/null; sudo apt-get install -y "$pkg" ;;
+    dnf) sudo dnf install -y "$pkg" ;;
+    pacman) sudo pacman -Sy --noconfirm "$pkg" ;;
+    *) echo "❌  Unknown package manager. Please install '${pkg}' manually."; exit 1 ;;
+  esac
+}
+
 ensure_runtime() {
   if command -v bun >/dev/null 2>&1; then
     RUNTIME="bun"
@@ -125,7 +147,35 @@ ensure_cloudflared() {
 
   echo ""
   echo "Step 3 — Installing cloudflared…"
-  brew install cloudflared
+  case "$PM" in
+    apt)
+      curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+      echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" \
+        | sudo tee /etc/apt/sources.list.d/cloudflared.list >/dev/null
+      sudo apt-get update -qq
+      sudo apt-get install -y cloudflared
+      ;;
+    dnf)
+      curl -fsSL https://pkg.cloudflare.com/cloudflared-ascii.repo | sudo tee /etc/yum.repos.d/cloudflared.repo >/dev/null
+      sudo dnf install -y cloudflared
+      ;;
+    pacman)
+      if command -v yay >/dev/null 2>&1; then
+        yay -S --noconfirm cloudflared
+      elif command -v paru >/dev/null 2>&1; then
+        paru -S --noconfirm cloudflared
+      else
+        echo "⚠️   Please install cloudflared manually (AUR or binary):"
+        echo "    https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/"
+        exit 1
+      fi
+      ;;
+    *)
+      echo "❌  Cannot install cloudflared automatically. Please install it manually:"
+      echo "    https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/"
+      exit 1
+      ;;
+  esac
   CLOUDflared="$(command -v cloudflared)"
   echo "✅  cloudflared installed"
 }
@@ -223,35 +273,21 @@ cleanup() {
   if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
     kill "$SERVER_PID" 2>/dev/null || true
   fi
-  if [ -n "${TUNNEL_PID:-}" ] && kill -0 "$TUNNEL_PID" 2>/dev/null; then
-    kill "$TUNNEL_PID" 2>/dev/null || true
-  fi
 }
 
 trap cleanup EXIT INT TERM
 
 echo ""
-echo "🐾  PokeClaw — macOS Setup & Launch"
+echo "🐾  PokeClaw — Linux Setup & Launch"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if command -v brew >/dev/null 2>&1; then
-  echo "✅  Homebrew already installed"
-else
-  if [ "$QUIET" = true ]; then
-    echo "❌  Homebrew not found. Run without --quiet to install it."
-    echo "    Or install manually: https://brew.sh"
-    exit 1
-  fi
-  echo ""
-  echo "Step 1 — Installing Homebrew…"
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  if [ -f /opt/homebrew/bin/brew ]; then
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile" 2>/dev/null || true
-  fi
-  echo "✅  Homebrew installed"
-fi
+ensure_pm
+case "$PM" in
+  apt|dnf|pacman) echo "📦  Detected package manager: ${PM}" ;;
+  *) echo "❌  Unsupported Linux distribution: no apt-get, dnf, or pacman found."; exit 1 ;;
+esac
 
+ensure_pkg curl
 ensure_runtime
 ensure_cloudflared
 ensure_dependencies
@@ -285,11 +321,11 @@ if [ "$QUIET" = false ]; then
   save_config
 else
   echo "⚡  Quiet mode — using existing environment and saved config"
-  echo "   POKECLAW_PORT          = ${PORT:-3741}"
-  echo "   POKECLAW_ROOTS         = ${ROOTS:-$HOME}"
-  echo "   POKECLAW_TOKEN         = $([ -n "$TOKEN" ] && echo '(set)' || echo '(not set)')"
-  echo "   POKECLAW_TUNNEL_ENABLED = ${TUNNEL_ENABLED:-0}"
-  echo "   POKECLAW_TUNNEL_MODE    = ${TUNNEL_MODE:-quick}"
+  echo "   POKECLAW_PORT           = ${PORT:-3741}"
+  echo "   POKECLAW_ROOTS          = ${ROOTS:-$HOME}"
+  echo "   POKECLAW_TOKEN          = $([ -n "$TOKEN" ] && echo '(set)' || echo '(not set)')"
+  echo "   POKECLAW_TUNNEL_ENABLED  = ${TUNNEL_ENABLED:-0}"
+  echo "   POKECLAW_TUNNEL_MODE     = ${TUNNEL_MODE:-quick}"
 fi
 
 existing_pid="$(find_port_pid)"
