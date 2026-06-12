@@ -12,6 +12,8 @@
  *   run_command    — Execute a shell command and return output
  *   get_env        — Read an environment variable
  *   system_info    — Inspect the local runtime and machine basics
+ *   system_stat    — Get CPU temperature and disk usage
+ *   clipboard_sync — Read/write to the system clipboard
  *
  * Auth:
  *   Set POKECLAW_TOKEN. Token accepted via:
@@ -275,6 +277,38 @@ function toolSystemInfo(): string {
   ].join("\n");
 }
 
+function toolSystemStat(): string {
+  let cpuTemp = "unknown";
+  let diskUsage = "unknown";
+  try {
+    if (platform() === "darwin") {
+      cpuTemp = execSync("sysctl -n machdep.cpu.temperature", { encoding: "utf-8" }).trim() + "°C";
+    } else if (platform() === "linux") {
+      cpuTemp = execSync("cat /sys/class/thermal/thermal_zone0/temp", { encoding: "utf-8" }).trim();
+      cpuTemp = (parseInt(cpuTemp) / 1000).toFixed(1) + "°C";
+    }
+  } catch { /* skip */ }
+  try {
+    diskUsage = execSync("df -h", { encoding: "utf-8" }).trim();
+  } catch { /* skip */ }
+  return `CPU Temperature: ${cpuTemp}\n\nDisk Usage:\n${diskUsage}`;
+}
+
+function toolClipboardSync(args: Record<string, unknown>): string {
+  const action = String(args.action ?? "read");
+  if (action === "write") {
+    const text = String(args.text ?? "");
+    const cmd = platform() === "darwin" ? "pbcopy" : "xclip -selection clipboard";
+    const child = require("child_process").spawn(cmd, { shell: true });
+    child.stdin.write(text);
+    child.stdin.end();
+    return "Copied to clipboard.";
+  } else {
+    const cmd = platform() === "darwin" ? "pbpaste" : "xclip -selection clipboard -o";
+    return execSync(cmd, { encoding: "utf-8" });
+  }
+}
+
 function toolRunCommand(args: Record<string, unknown>): string {
   if (!args.command) throw new Error("command is required");
   const command = String(args.command);
@@ -480,6 +514,8 @@ const TOOLS = [
   { name: "run_command", description: "Run a shell command on the Mac and return stdout/stderr. Commands run in your home directory.", inputSchema: { type: "object", properties: { command: { type: "string" }, cwd: { type: "string" }, timeout_ms: { type: "number" } }, required: ["command"] } },
   { name: "get_env", description: "Read an environment variable from the Mac.", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
   { name: "system_info", description: "Get machine and runtime details for debugging and support.", inputSchema: { type: "object", properties: {} } },
+  { name: "system_stat", description: "Report CPU temperature and disk usage (for all drives).", inputSchema: { type: "object", properties: {} } },
+  { name: "clipboard_sync", description: "Read or write to the system clipboard.", inputSchema: { type: "object", properties: { action: { type: "string", enum: ["read", "write"] }, text: { type: "string" } }, required: ["action"] } },
 ];
 
 async function handleRPC(body: Record<string, unknown>): Promise<unknown> {
@@ -515,6 +551,8 @@ async function handleRPC(body: Record<string, unknown>): Promise<unknown> {
           case "run_command": text = toolRunCommand(args); break;
           case "get_env": text = toolGetEnv(args); break;
           case "system_info": text = toolSystemInfo(); break;
+          case "system_stat": text = toolSystemStat(); break;
+          case "clipboard_sync": text = toolClipboardSync(args); break;
           default: return err(-32601, `Unknown tool: ${toolName}`);
         }
         return ok({ content: [{ type: "text", text }] });

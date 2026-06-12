@@ -1,4 +1,4 @@
-# 🐾 PokeClaw
+# 🌴 PokeClaw
 
 **PokeClaw** is a local [MCP](https://modelcontextprotocol.io) server that gives [Poke](https://poke.com) access to your Mac or Linux machine's filesystem and terminal.
 

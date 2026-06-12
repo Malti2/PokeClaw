@@ -32,6 +32,7 @@ RUNTIME=""
 SERVER_PID=""
 TUNNEL_PID=""
 CLOUDflared=""
+MENU_BAR_PID=""
 
 for arg in "$@"; do
   case "$arg" in
@@ -219,6 +220,25 @@ run_tunnel() {
   "$CLOUDflared" "${tunnel_cmd[@]}"
 }
 
+launch_menu_bar() {
+  # Simple AppleScript-based menu bar integration via background loop
+  # Updates the "label" of the script process in Dock/Menu or just provides status
+  (
+    while true; do
+      local tunnel_status="Disconnected"
+      if pgrep cloudflared >/dev/null; then
+        tunnel_status="Connected"
+      fi
+      # Using osa-script to show notification or interact with system if needed
+      # For a true menu bar icon without a complex Swift app, we'd need a helper.
+      # Here we'll simulate it by updating a status file the user can see or just logging.
+      echo "PokeClaw Tunnel: $tunnel_status" > "$CONFIG_DIR/status.txt"
+      sleep 10
+    done
+  ) &
+  MENU_BAR_PID=$!
+}
+
 cleanup() {
   if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
     kill "$SERVER_PID" 2>/dev/null || true
@@ -226,12 +246,15 @@ cleanup() {
   if [ -n "${TUNNEL_PID:-}" ] && kill -0 "$TUNNEL_PID" 2>/dev/null; then
     kill "$TUNNEL_PID" 2>/dev/null || true
   fi
+  if [ -n "${MENU_BAR_PID:-}" ] && kill -0 "$MENU_BAR_PID" 2>/dev/null; then
+    kill "$MENU_BAR_PID" 2>/dev/null || true
+  fi
 }
 
 trap cleanup EXIT INT TERM
 
 echo ""
-echo "🐾  PokeClaw — macOS Setup & Launch"
+echo "🌴  PokeClaw — macOS Setup & Launch"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 if command -v brew >/dev/null 2>&1; then
@@ -301,6 +324,7 @@ if [ -n "$existing_pid" ]; then
 fi
 
 launch_server
+launch_menu_bar
 sleep 1
 
 echo ""

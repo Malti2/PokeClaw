@@ -278,7 +278,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo ""
-echo "🐾  PokeClaw — Linux Setup & Launch"
+echo "🌴  PokeClaw — Linux Setup & Launch"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 ensure_pm
