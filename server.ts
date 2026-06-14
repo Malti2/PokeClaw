@@ -433,7 +433,7 @@ async function notifyPokePlatform(event: string, payload: Record<string, unknown
     localUrl: `http://127.0.0.1:${PORT}/mcp`,
     healthUrl: `http://127.0.0.1:${PORT}/health`,
     authEnabled: Boolean(TOKEN),
-    roots: ROOTS,
+    roots: ROOTS.length,
     ...payload,
   };
 
