@@ -138,6 +138,49 @@ ensure_runtime() {
   fi
 }
 
+ensure_webview_runner() {
+  local runner="$CONFIG_DIR/webview-runner"
+  [ -f "$runner" ] && return 0
+  mkdir -p "$CONFIG_DIR"
+  cat > "$runner" << 'PYEOF'
+#!/usr/bin/env python3
+import sys, os
+
+args = sys.argv[1:]
+if not args:
+    sys.exit(1)
+
+html_path = args[0]
+width = int(args[1]) if len(args) > 1 else 800
+height = int(args[2]) if len(args) > 2 else 600
+
+try:
+    import gi
+    gi.require_version('Gtk', '3.0')
+    gi.require_version('WebKit2', '4.0')
+    from gi.repository import Gtk, WebKit2
+
+    win = Gtk.Window()
+    win.set_default_size(width, height)
+    win.set_title(args[3] if len(args) > 3 else os.path.splitext(os.path.basename(html_path))[0])
+    win.connect('destroy', Gtk.main_quit)
+
+    scroller = Gtk.ScrolledWindow()
+    webview = WebKit2.WebView()
+    webview.load_uri('file://' + os.path.abspath(html_path))
+    scroller.add(webview)
+
+    win.add(scroller)
+    win.show_all()
+    Gtk.main()
+except ImportError:
+    import subprocess
+    subprocess.run(['xdg-open', html_path])
+PYEOF
+  chmod +x "$runner"
+  echo "   ✅  Webview runner ready"
+}
+
 ensure_cloudflared() {
   if command -v cloudflared >/dev/null 2>&1; then
     CLOUDflared="$(command -v cloudflared)"
@@ -289,6 +332,7 @@ esac
 
 ensure_pkg curl
 ensure_runtime
+ensure_webview_runner
 ensure_cloudflared
 ensure_dependencies
 
