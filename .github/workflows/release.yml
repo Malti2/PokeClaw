@@ -1,0 +1,63 @@
+name: Publish PokeClaw release
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare release bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+          ROOT="release-assets"
+          MAC_DIR="$ROOT/PokeClaw-macos"
+          LINUX_DIR="$ROOT/PokeClaw-linux"
+          MAC_ZIP="PokeClaw-macos-${TAG}.zip"
+          LINUX_ZIP="PokeClaw-linux-${TAG}.zip"
+
+          rm -rf "$ROOT" "$MAC_ZIP" "$LINUX_ZIP"
+          mkdir -p "$MAC_DIR" "$LINUX_DIR"
+
+          common_files=(README.md server.ts)
+          for file in "${common_files[@]}"; do
+            cp "$file" "$MAC_DIR/"
+            cp "$file" "$LINUX_DIR/"
+          done
+
+          cp start-pokeclaw-mac.sh "$MAC_DIR/"
+          cp start-pokeclaw-linux.sh "$LINUX_DIR/"
+          cp -R docs "$MAC_DIR/"
+          cp -R docs "$LINUX_DIR/"
+          # website is intentionally excluded from both release bundles.
+
+          chmod +x "$MAC_DIR/start-pokeclaw-mac.sh" "$LINUX_DIR/start-pokeclaw-linux.sh"
+
+          (cd "$ROOT" && zip -qr "../$MAC_ZIP" "PokeClaw-macos")
+          (cd "$ROOT" && zip -qr "../$LINUX_ZIP" "PokeClaw-linux")
+
+          ls -lh "$MAC_ZIP" "$LINUX_ZIP"
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: PokeClaw ${{ github.ref_name }}
+          body: Automated release for tag ${{ github.ref_name }}.
+          append_body: true
+          target_commitish: ${{ github.sha }}
+          files: |
+            PokeClaw-macos-${{ github.ref_name }}.zip
+            PokeClaw-linux-${{ github.ref_name }}.zip
