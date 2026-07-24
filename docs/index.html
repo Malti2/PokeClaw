@@ -29,6 +29,7 @@
           <div class="hero-actions">
             <a class="button button-primary" href="#features">Explore</a>
             <a class="button button-secondary" href="#install">Install</a>
+          <button class="button button-secondary" id="copyInstall" type="button">Copy install</button>
           </div>
         </section>
 
@@ -61,14 +62,14 @@
         <section class="terminal-grid fade-in" data-reveal id="install" aria-label="Install and use">
           <article class="terminal glass">
             <div class="terminal-title">Install</div>
-            <pre><code>git clone https://github.com/Malti2/PokeClaw.git
+            <pre><code id="installClone">git clone https://github.com/Malti2/PokeClaw.git
 cd PokeClaw
 git checkout beta</code></pre>
           </article>
 
           <article class="terminal glass">
             <div class="terminal-title">Run</div>
-            <pre><code>npm install
+            <pre><code id="installRun">npm install
 npm run dev
 open -a PokeClaw</code></pre>
           </article>

@@ -1,0 +1,62 @@
+{
+  "name": "pokeclaw",
+  "version": "27.0.0",
+  "description": "🌴 PokeClaw — local MCP server that gives Poke access to your machine's filesystem and terminal, with a live TUI, unified CLI, and security controls.",
+  "type": "module",
+  "bin": {
+    "pokeclaw": "dist/cli.js"
+  },
+  "main": "dist/server.js",
+  "files": [
+    "dist",
+    "server.ts",
+    "src",
+    "start-pokeclaw-linux.sh",
+    "start-pokeclaw-mac.sh",
+    "start-pokeclaw.ps1",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts start",
+    "start": "node dist/cli.js start",
+    "pokeclaw": "tsx src/cli.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepare": "tsc -p tsconfig.json || true"
+  },
+  "keywords": [
+    "poke",
+    "pokeclaw",
+    "mcp",
+    "model-context-protocol",
+    "tui",
+    "cli",
+    "cloudflared"
+  ],
+  "author": "PokeClaw contributors",
+  "license": "MIT",
+  "homepage": "https://github.com/Malti2/PokeClaw#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Malti2/PokeClaw.git"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.11.0",
+    "@types/node": "^20.14.0",
+    "eslint": "^9.11.0",
+    "prettier": "^3.3.3",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.8.0",
+    "vitest": "^2.1.0"
+  }
+}
