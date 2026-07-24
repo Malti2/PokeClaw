@@ -1,7 +1,7 @@
 import { createServer } from "http";
 import type { IncomingMessage, ServerResponse } from "http";
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync } from "fs";
-import { execSync } from "child_process";
+import { execSync, spawn } from "child_process";
 import { resolve, join, dirname } from "path";
 import { homedir, hostname, platform, release, arch } from "os";
 
@@ -314,6 +314,340 @@ function toolGetEnv(args: Record<string, unknown>): string {
   return val !== undefined ? val : "(not set)";
 }
 
+// ---------------------------------------------------------------------------
+// Native app windows — create_app / edit_app / open_app / list_apps
+//
+// PokeClaw turns HTML into a desktop "app" window. The window is opened with
+// the best strategy available on the current OS, tried in order:
+//   1. A Chromium browser in --app mode (a chromeless window) — works the same
+//      on macOS, Linux and Windows whenever Chrome/Edge/Brave/Chromium exists.
+//   2. An OS-native webview fallback:
+//        macOS   → a compiled Swift/WebKit runner
+//        Linux   → a Python GTK/WebKit runner
+//        Windows → an HTML Application launched via mshta
+//   3. The default browser as a last resort.
+// ---------------------------------------------------------------------------
+
+const POKECLAW_DIR = join(HOME, ".pokeclaw");
+const APPS_DIR = join(POKECLAW_DIR, "apps");
+
+/** Keep app names safe to use as a folder (no path traversal). */
+function sanitizeAppName(raw: string): string {
+  return raw
+    .trim()
+    .replace(/[^A-Za-z0-9 ._-]/g, "_")
+    .replace(/^\.+/, "")
+    .slice(0, 80)
+    .trim();
+}
+
+function appDir(name: string): string {
+  return join(APPS_DIR, name);
+}
+
+function appHtmlPath(name: string): string {
+  return join(appDir(name), "app.html");
+}
+
+function commandExists(cmd: string): boolean {
+  try {
+    const probe = platform() === "win32" ? `where ${cmd}` : `command -v ${cmd}`;
+    execSync(probe, { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function firstExistingPath(paths: string[]): string | null {
+  for (const p of paths) {
+    try {
+      if (existsSync(p)) return p;
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
+function spawnDetached(cmd: string, args: string[]): void {
+  try {
+    const child = spawn(cmd, args, { detached: true, stdio: "ignore" });
+    child.on("error", () => {
+      /* viewer unavailable — swallow so a tool call never crashes */
+    });
+    child.unref();
+  } catch {
+    /* ignore spawn failures */
+  }
+}
+
+/** Locate a Chromium-based browser binary for --app mode, or null. */
+function findChromiumBrowser(): string | null {
+  const plat = platform();
+  if (plat === "darwin") {
+    return firstExistingPath([
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+      "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+      "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    ]);
+  }
+  if (plat === "win32") {
+    const found = firstExistingPath([
+      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+      "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+      "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    ]);
+    if (found) return found;
+    if (commandExists("chrome")) return "chrome";
+    if (commandExists("msedge")) return "msedge";
+    return null;
+  }
+  for (const cmd of [
+    "google-chrome",
+    "google-chrome-stable",
+    "chromium",
+    "chromium-browser",
+    "microsoft-edge",
+    "brave-browser",
+  ]) {
+    if (commandExists(cmd)) return cmd;
+  }
+  return null;
+}
+
+const MAC_RUNNER_SWIFT = `import Cocoa
+import WebKit
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    var window: NSWindow!
+    var webView: WKWebView!
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let args = CommandLine.arguments
+        guard args.count > 1 else { NSApp.terminate(nil); return }
+        let htmlPath = args[1]
+        let w = args.count > 2 ? Int(args[2]) ?? 800 : 800
+        let h = args.count > 3 ? Int(args[3]) ?? 600 : 600
+
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: w, height: h),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered, defer: false)
+        window.title = args.count > 4 ? args[4] : (htmlPath as NSString).lastPathComponent
+
+        webView = WKWebView(frame: NSRect(x: 0, y: 0, width: w, height: h))
+        webView.autoresizingMask = [.width, .height]
+        window.contentView = webView
+
+        let url = URL(fileURLWithPath: htmlPath)
+        webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+let app = NSApplication.shared
+let delegate = AppDelegate()
+app.delegate = delegate
+app.run()
+`;
+
+const LINUX_RUNNER_PY = `#!/usr/bin/env python3
+import os
+import sys
+
+args = sys.argv[1:]
+if not args:
+    sys.exit(1)
+
+html_path = os.path.abspath(args[0])
+width = int(args[1]) if len(args) > 1 else 800
+height = int(args[2]) if len(args) > 2 else 600
+title = args[3] if len(args) > 3 else os.path.splitext(os.path.basename(html_path))[0]
+
+def run_gtk():
+    import gi
+    gi.require_version('Gtk', '3.0')
+    try:
+        gi.require_version('WebKit2', '4.1')
+    except ValueError:
+        gi.require_version('WebKit2', '4.0')
+    from gi.repository import Gtk, WebKit2
+
+    win = Gtk.Window()
+    win.set_default_size(width, height)
+    win.set_title(title)
+    win.connect('destroy', Gtk.main_quit)
+
+    scroller = Gtk.ScrolledWindow()
+    webview = WebKit2.WebView()
+    webview.load_uri('file://' + html_path)
+    scroller.add(webview)
+
+    win.add(scroller)
+    win.show_all()
+    Gtk.main()
+
+try:
+    run_gtk()
+except Exception:
+    import subprocess
+    subprocess.run(['xdg-open', html_path])
+`;
+
+/** macOS: compile (once) and return the Swift/WebKit runner path, or null. */
+function ensureMacRunner(): string | null {
+  const runner = join(POKECLAW_DIR, "webview-runner");
+  if (existsSync(runner)) return runner;
+  if (!commandExists("xcrun")) return null;
+  try {
+    mkdirSync(POKECLAW_DIR, { recursive: true });
+    const src = join(POKECLAW_DIR, "webview-runner.swift");
+    writeFileSync(src, MAC_RUNNER_SWIFT, "utf-8");
+    execSync(`xcrun swiftc -O -o ${JSON.stringify(runner)} ${JSON.stringify(src)}`, {
+      stdio: "ignore",
+    });
+    return existsSync(runner) ? runner : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Linux: write (once) and return the Python GTK/WebKit runner path, or null. */
+function ensureLinuxRunner(): string | null {
+  if (!commandExists("python3")) return null;
+  try {
+    mkdirSync(POKECLAW_DIR, { recursive: true });
+    const runner = join(POKECLAW_DIR, "webview-runner.py");
+    if (!existsSync(runner)) writeFileSync(runner, LINUX_RUNNER_PY, "utf-8");
+    return runner;
+  } catch {
+    return null;
+  }
+}
+
+/** Windows: write an .hta wrapper and launch it with mshta, returns success. */
+function launchWindowsHta(name: string, width: number, height: number, title: string): boolean {
+  if (!commandExists("mshta")) return false;
+  try {
+    const htaPath = join(appDir(name), "window.hta");
+    const safeTitle = title.replace(/[<>]/g, "");
+    const hta = `<!DOCTYPE html>
+<html>
+<head>
+<title>${safeTitle}</title>
+<hta:application id="pokeclawApp" border="thin" scroll="no" contextmenu="no" innerborder="no" maximizebutton="yes" />
+<script>window.resizeTo(${width}, ${height});</script>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#fff;}iframe{border:0;width:100%;height:100%;}</style>
+</head>
+<body><iframe src="app.html"></iframe></body>
+</html>
+`;
+    writeFileSync(htaPath, hta, "utf-8");
+    spawnDetached("mshta", [htaPath]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function openInDefaultBrowser(fileUrl: string): void {
+  const plat = platform();
+  if (plat === "darwin") spawnDetached("open", [fileUrl]);
+  else if (plat === "win32") spawnDetached("cmd", ["/c", "start", "", fileUrl]);
+  else spawnDetached("xdg-open", [fileUrl]);
+}
+
+/** Open an already-written app in the best available window for this OS. */
+function openAppWindow(name: string, width: number, height: number): string {
+  const htmlPath = appHtmlPath(name);
+  const fileUrl = "file://" + htmlPath;
+  const w = Math.max(200, Math.floor(width) || 800);
+  const h = Math.max(200, Math.floor(height) || 600);
+
+  // 1) Chromium --app mode (chromeless window), consistent across all OSes.
+  const chromium = findChromiumBrowser();
+  if (chromium) {
+    spawnDetached(chromium, [
+      `--app=${fileUrl}`,
+      `--window-size=${w},${h}`,
+      `--user-data-dir=${join(POKECLAW_DIR, "chrome-profile")}`,
+      "--no-first-run",
+      "--no-default-browser-check",
+    ]);
+    return "chromium app window";
+  }
+
+  // 2) OS-native webview.
+  const plat = platform();
+  if (plat === "darwin") {
+    const runner = ensureMacRunner();
+    if (runner) {
+      spawnDetached(runner, [htmlPath, String(w), String(h), name]);
+      return "macOS WebKit window";
+    }
+  } else if (plat === "win32") {
+    if (launchWindowsHta(name, w, h, name)) return "Windows HTA window";
+  } else {
+    const runner = ensureLinuxRunner();
+    if (runner) {
+      spawnDetached("python3", [runner, htmlPath, String(w), String(h), name]);
+      return "Linux GTK WebKit window";
+    }
+  }
+
+  // 3) Default browser.
+  openInDefaultBrowser(fileUrl);
+  return "default browser";
+}
+
+function toolCreateApp(args: Record<string, unknown>): string {
+  const name = sanitizeAppName(String(args.name ?? ""));
+  const html = String(args.html ?? "");
+  if (!name) return "Error: name is required";
+  if (!html) return "Error: html content is required";
+  mkdirSync(appDir(name), { recursive: true });
+  writeFileSync(appHtmlPath(name), html, "utf-8");
+  const via = openAppWindow(name, Number(args.width) || 800, Number(args.height) || 600);
+  return `✓ Created "${name}" (opened via ${via})\n  Path: ${appHtmlPath(name)}`;
+}
+
+function toolEditApp(args: Record<string, unknown>): string {
+  const name = sanitizeAppName(String(args.name ?? ""));
+  const html = String(args.html ?? "");
+  if (!name) return "Error: name is required";
+  if (!html) return "Error: html content is required";
+  if (!existsSync(appHtmlPath(name))) return `Error: app "${name}" not found`;
+  writeFileSync(appHtmlPath(name), html, "utf-8");
+  const via = openAppWindow(name, Number(args.width) || 800, Number(args.height) || 600);
+  return `✓ Updated "${name}" (opened via ${via})`;
+}
+
+function toolOpenApp(args: Record<string, unknown>): string {
+  const name = sanitizeAppName(String(args.name ?? ""));
+  if (!name) return "Error: name is required";
+  if (!existsSync(appHtmlPath(name))) return `Error: app "${name}" not found`;
+  const via = openAppWindow(name, Number(args.width) || 800, Number(args.height) || 600);
+  return `✓ Opened "${name}" (via ${via})`;
+}
+
+function toolListApps(): string {
+  if (!existsSync(APPS_DIR)) return "No apps created yet.";
+  const entries = readdirSync(APPS_DIR).filter((n) => {
+    try {
+      return statSync(join(APPS_DIR, n)).isDirectory() && existsSync(join(APPS_DIR, n, "app.html"));
+    } catch {
+      return false;
+    }
+  });
+  return entries.length ? entries.join("\n") : "No apps created yet.";
+}
+
 function formatDuration(totalSeconds: number): string {
   const seconds = Math.max(0, Math.floor(totalSeconds));
   const days = Math.floor(seconds / 86400);
@@ -491,6 +825,10 @@ const TOOLS = [
   { name: "system_info", description: "Get machine and runtime details for debugging and support.", inputSchema: { type: "object", properties: {} } },
   { name: "system_stat", description: "Report CPU temperature and disk usage (for all drives).", inputSchema: { type: "object", properties: {} } },
   { name: "clipboard_sync", description: "Read or write to the system clipboard.", inputSchema: { type: "object", properties: { action: { type: "string", enum: ["read", "write"] }, text: { type: "string" } }, required: ["action"] } },
+  { name: "create_app", description: "Create a desktop app window from HTML. Opens a chromeless app window on macOS, Linux and Windows (Chromium --app mode, with native WebKit/GTK or mshta fallbacks). Writes the HTML to ~/.pokeclaw/apps/ and opens it in its own window (not a browser tab). Choose width/height that fit the app (e.g. calculator ~320x480, editor ~900x600).", inputSchema: { type: "object", properties: { name: { type: "string", description: "App name used as folder name and window title" }, html: { type: "string", description: "Full HTML content including <style> and <script> tags" }, width: { type: "number", description: "Window width in pixels" }, height: { type: "number", description: "Window height in pixels" } }, required: ["name", "html", "width", "height"] } },
+  { name: "list_apps", description: "List all apps created via create_app.", inputSchema: { type: "object", properties: {} } },
+  { name: "edit_app", description: "Update an existing app's HTML content and reopen it. Same as create_app but for updates.", inputSchema: { type: "object", properties: { name: { type: "string" }, html: { type: "string", description: "Full HTML content including <style> and <script> tags" }, width: { type: "number" }, height: { type: "number" } }, required: ["name", "html"] } },
+  { name: "open_app", description: "Open an existing app in its own desktop window.", inputSchema: { type: "object", properties: { name: { type: "string" }, width: { type: "number" }, height: { type: "number" } }, required: ["name"] } },
 ];
 
 async function handleRPC(body: Record<string, unknown>): Promise<unknown> {
@@ -528,6 +866,10 @@ async function handleRPC(body: Record<string, unknown>): Promise<unknown> {
           case "system_info": text = toolSystemInfo(); break;
           case "system_stat": text = toolSystemStat(); break;
           case "clipboard_sync": text = toolClipboardSync(args); break;
+          case "create_app": text = toolCreateApp(args); break;
+          case "list_apps": text = toolListApps(); break;
+          case "edit_app": text = toolEditApp(args); break;
+          case "open_app": text = toolOpenApp(args); break;
           default: return err(-32601, "Unknown tool: " + toolName);
         }
         return ok({ content: [{ type: "text", text }] });

@@ -17,7 +17,7 @@ By default, Poke lives in the cloud and doesn't have access to files on your com
 - "List everything on my Desktop"
 - "What is my NODE_ENV set to?"
 
-PokeClaw works on **macOS** (any Mac) and **Linux** (Debian/Ubuntu, Fedora/RHEL, Arch, and compatible distributions).
+PokeClaw works on **macOS** (any Mac), **Linux** (Debian/Ubuntu, Fedora/RHEL, Arch, and compatible distributions), and **Windows** (PowerShell).
 
 The secure tunnel is created with [Poke's own CLI](https://poke.com) via `npx poke tunnel` — no separate tunnel binary to install or configure.
 
@@ -35,6 +35,20 @@ The secure tunnel is created with [Poke's own CLI](https://poke.com) via `npx po
 | `get_env` | Read environment variables |
 | `search_text` | Search text inside files under allowed paths |
 | `system_info` | Show machine/runtime details for troubleshooting |
+| `system_stat` | Report CPU temperature and disk usage |
+| `clipboard_sync` | Read from or write to the system clipboard |
+| `create_app` | Turn HTML into a desktop app window (macOS/Linux/Windows) |
+| `edit_app` | Update an existing app's HTML and reopen it |
+| `open_app` | Reopen an existing app in its own window |
+| `list_apps` | List all apps created with `create_app` |
+
+### Desktop app windows
+
+`create_app` writes your HTML to `~/.pokeclaw/apps/<name>/` and opens it in its **own chromeless window** — not a browser tab. It works the same on macOS, Linux and Windows by trying, in order:
+
+1. a Chromium browser in `--app` mode (Chrome/Edge/Brave/Chromium),
+2. an OS-native webview — a Swift/WebKit window on macOS, a Python GTK/WebKit window on Linux, or an `mshta` HTML Application on Windows,
+3. the default browser as a last resort.
 
 ---
 
@@ -82,6 +96,23 @@ Supported distributions:
 - Arch Linux (and derivatives): uses `pacman`
 
 > **Quiet mode:** Relaunch with `bash start-pokeclaw-linux.sh --quiet` to skip all prompts and use your saved settings.
+
+---
+
+### Windows
+
+```powershell
+pwsh -File start-pokeclaw.ps1
+```
+
+The Windows launcher mirrors the macOS/Linux ones:
+
+- Uses **Bun** if installed, otherwise **Node.js** via `ts-node`
+- Requires `npx` (from [Node.js](https://nodejs.org)); warns if `rg` ([ripgrep](https://github.com/BurntSushi/ripgrep)) is missing (`winget install BurntSushi.ripgrep.MSVC`)
+- Opens the tunnel with `npx poke tunnel` and runs `npx poke login` if needed
+- Saves settings to `%USERPROFILE%\.pokeclaw\launch.env` (shared with the `pokeclaw` CLI)
+
+> **Quiet mode:** Relaunch with `pwsh -File start-pokeclaw.ps1 -Quiet` to skip all prompts and use your saved settings.
 
 ---
 

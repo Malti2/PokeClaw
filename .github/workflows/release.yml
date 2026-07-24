@@ -25,20 +25,24 @@ jobs:
           ROOT="release-assets"
           MAC_DIR="$ROOT/PokeClaw-macos"
           LINUX_DIR="$ROOT/PokeClaw-linux"
+          WIN_DIR="$ROOT/PokeClaw-windows"
           MAC_ZIP="PokeClaw-macos-${TAG}.zip"
           LINUX_ZIP="PokeClaw-linux-${TAG}.zip"
+          WIN_ZIP="PokeClaw-windows-${TAG}.zip"
 
-          rm -rf "$ROOT" "$MAC_ZIP" "$LINUX_ZIP"
-          mkdir -p "$MAC_DIR" "$LINUX_DIR"
+          rm -rf "$ROOT" "$MAC_ZIP" "$LINUX_ZIP" "$WIN_ZIP"
+          mkdir -p "$MAC_DIR" "$LINUX_DIR" "$WIN_DIR"
 
           common_files=(README.md server.ts)
           for file in "${common_files[@]}"; do
             cp "$file" "$MAC_DIR/"
             cp "$file" "$LINUX_DIR/"
+            cp "$file" "$WIN_DIR/"
           done
 
           cp start-pokeclaw-mac.sh "$MAC_DIR/"
           cp start-pokeclaw-linux.sh "$LINUX_DIR/"
+          cp start-pokeclaw.ps1 "$WIN_DIR/"
           # The landing page under website/ is intentionally excluded from the
           # release bundles — it is published via GitHub Pages, not shipped with
           # the runnable download.
@@ -47,8 +51,9 @@ jobs:
 
           (cd "$ROOT" && zip -qr "../$MAC_ZIP" "PokeClaw-macos")
           (cd "$ROOT" && zip -qr "../$LINUX_ZIP" "PokeClaw-linux")
+          (cd "$ROOT" && zip -qr "../$WIN_ZIP" "PokeClaw-windows")
 
-          ls -lh "$MAC_ZIP" "$LINUX_ZIP"
+          ls -lh "$MAC_ZIP" "$LINUX_ZIP" "$WIN_ZIP"
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
@@ -61,3 +66,4 @@ jobs:
           files: |
             PokeClaw-macos-${{ github.ref_name }}.zip
             PokeClaw-linux-${{ github.ref_name }}.zip
+            PokeClaw-windows-${{ github.ref_name }}.zip
