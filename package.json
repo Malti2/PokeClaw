@@ -1,0 +1,28 @@
+{
+  "name": "pokeclaw",
+  "version": "1.1.0-beta",
+  "description": "Local MCP server for Poke, with a live terminal dashboard (TUI) and a pokeclaw CLI.",
+  "type": "commonjs",
+  "bin": {
+    "pokeclaw": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "server.ts",
+    "start-pokeclaw-mac.sh",
+    "start-pokeclaw-linux.sh",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "pokeclaw": "npm run build && node dist/cli.js",
+    "start": "npm run build && node dist/cli.js start"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

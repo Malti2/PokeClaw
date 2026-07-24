@@ -84,6 +84,35 @@ Supported distributions:
 > **Quiet mode:** Relaunch with `bash start-pokeclaw-linux.sh --quiet` to skip all prompts and use your saved settings.
 
 ---
+
+## Terminal dashboard & CLI (`pokeclaw`)
+
+PokeClaw ships a unified `pokeclaw` command with a live terminal dashboard (TUI). It is a companion to the bash launchers — it starts the same `server.ts` and opens the tunnel the same way (`npx poke tunnel … --name pokeclaw`), and it reads/writes the **same** `~/.pokeclaw/launch.env`, so the two are fully interchangeable.
+
+Build it once (needs Node.js 18+):
+
+```bash
+npm install
+npm run build
+npm link   # optional — puts `pokeclaw` on your PATH
+```
+
+Then:
+
+```bash
+pokeclaw onboard          # interactive setup → ~/.pokeclaw/launch.env
+pokeclaw start            # server + Poke tunnel + live dashboard
+pokeclaw start --headless # no dashboard (for services/daemons)
+pokeclaw start --no-tunnel # local server only
+pokeclaw status           # status of a running server
+pokeclaw logs             # recent server logs
+pokeclaw doctor           # environment & config diagnostics
+pokeclaw install-service  # launchd/systemd autostart unit
+```
+
+The dashboard shows connection/tunnel status, uptime, CPU/RAM, recent tool calls, and a live log. Hotkeys: `q` quit · `p` pause · `c` clear · `f` filter · `?` help. Without a TTY (or with `--headless`) it prints a plain banner and keeps running. `pokeclaw start` runs `npx poke login` for you if you are not signed in.
+
+---
 ## Manual Setup (Advanced)
 
 If you prefer to configure things yourself:
