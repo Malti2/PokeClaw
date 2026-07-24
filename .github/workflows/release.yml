@@ -31,17 +31,22 @@ jobs:
           rm -rf "$ROOT" "$MAC_ZIP" "$LINUX_ZIP"
           mkdir -p "$MAC_DIR" "$LINUX_DIR"
 
-          common_files=(README.md server.ts)
+          common_files=(README.md server.ts package.json tsconfig.json)
           for file in "${common_files[@]}"; do
             cp "$file" "$MAC_DIR/"
             cp "$file" "$LINUX_DIR/"
           done
 
+          # Ship the TypeScript source; the launchers install deps and build.
+          cp -R src "$MAC_DIR/"
+          cp -R src "$LINUX_DIR/"
+
           cp start-pokeclaw-mac.sh "$MAC_DIR/"
           cp start-pokeclaw-linux.sh "$LINUX_DIR/"
+          cp start-pokeclaw.ps1 "$MAC_DIR/"
+          cp start-pokeclaw.ps1 "$LINUX_DIR/"
           cp -R docs "$MAC_DIR/"
           cp -R docs "$LINUX_DIR/"
-          # website is intentionally excluded from both release bundles.
 
           chmod +x "$MAC_DIR/start-pokeclaw-mac.sh" "$LINUX_DIR/start-pokeclaw-linux.sh"
 
