@@ -54,71 +54,37 @@ The secure tunnel is created with [Poke's own CLI](https://poke.com) via `npx po
 
 ## Automated Setup (Recommended)
 
-Use the platform-specific launcher that matches your system:
-
-### macOS
+PokeClaw has **one launcher** for every OS. Start it and it does the right thing for your system automatically:
 
 ```bash
-bash start-pokeclaw-mac.sh
+node pokeclaw.js
 ```
 
-The macOS launcher will:
-1. **Install Homebrew** if not present
-2. **Install Bun** (preferred) or use Node.js if already installed
-3. **Install dependencies**
-4. **Guide you through configuration** — port, allowed folders, auth token
-5. **Optionally save settings** to `~/.pokeclaw/launch.env` for future sessions
-6. **Start the PokeClaw server and the Poke tunnel** (`npx poke tunnel`), which are handled directly by the launcher script
-
-> **Prerequisites:** the launcher needs `npx` (bundled with [Node.js](https://nodejs.org)) for `npx poke`, and `rg` ([ripgrep](https://github.com/BurntSushi/ripgrep), e.g. `brew install ripgrep`). If you are not logged in to Poke yet, the launcher runs `npx poke login` for you.
-
-> **Quiet mode:** Relaunch with `bash start-pokeclaw-mac.sh --quiet` to skip all prompts and use your saved settings.
-
----
-
-### Linux
+On macOS/Linux you can also make it executable and run it directly:
 
 ```bash
-bash start-pokeclaw-linux.sh
+chmod +x pokeclaw.js
+./pokeclaw.js
 ```
 
-The Linux launcher performs the same setup as the macOS version, with the following differences:
+The launcher will, on macOS, Linux and Windows:
 
-- **No Homebrew** — uses your system package manager instead (`apt` for Debian/Ubuntu, `dnf` for Fedora/RHEL, `pacman` for Arch)
-- Missing prerequisites such as `curl` and `rg` (ripgrep) are installed via your package manager
-- The tunnel is created with `npx poke tunnel` — the same way as on macOS
-- Settings are saved to `~/.pokeclaw/launch.env`
-- Port-in-use detection uses `lsof` with a `fuser` fallback
+1. **Detect your OS** and pick the runtime — **Bun** if installed, otherwise **Node.js** (via `ts-node`)
+2. **Check prerequisites** — requires `npx` (from [Node.js](https://nodejs.org)); warns with an OS-specific hint if `rg` ([ripgrep](https://github.com/BurntSushi/ripgrep)) is missing
+3. **Guide you through configuration** — port, allowed folders, auth token — and save it to `~/.pokeclaw/launch.env`
+4. **Log you in** with `npx poke login` if needed
+5. **Start the PokeClaw server and the Poke tunnel** (`npx poke tunnel … --name pokeclaw`)
+6. **Show the live dashboard** automatically when the `pokeclaw` CLI has been built (see below); otherwise it runs with a plain banner
 
-Supported distributions:
-- Debian / Ubuntu (and derivatives): uses `apt`
-- Fedora / RHEL / CentOS Stream: uses `dnf`
-- Arch Linux (and derivatives): uses `pacman`
+> **Options:** `--quiet` (skip prompts, use saved/env config), `--headless` (no dashboard, for services), `--no-tunnel` (local server only). Example: `node pokeclaw.js --quiet`.
 
-> **Quiet mode:** Relaunch with `bash start-pokeclaw-linux.sh --quiet` to skip all prompts and use your saved settings.
-
----
-
-### Windows
-
-```powershell
-pwsh -File start-pokeclaw.ps1
-```
-
-The Windows launcher mirrors the macOS/Linux ones:
-
-- Uses **Bun** if installed, otherwise **Node.js** via `ts-node`
-- Requires `npx` (from [Node.js](https://nodejs.org)); warns if `rg` ([ripgrep](https://github.com/BurntSushi/ripgrep)) is missing (`winget install BurntSushi.ripgrep.MSVC`)
-- Opens the tunnel with `npx poke tunnel` and runs `npx poke login` if needed
-- Saves settings to `%USERPROFILE%\.pokeclaw\launch.env` (shared with the `pokeclaw` CLI)
-
-> **Quiet mode:** Relaunch with `pwsh -File start-pokeclaw.ps1 -Quiet` to skip all prompts and use your saved settings.
+> **Only Node.js is required** — it is needed for `npx poke` anyway, so there is no separate tunnel binary to install.
 
 ---
 
 ## Terminal dashboard & CLI (`pokeclaw`)
 
-PokeClaw ships a unified `pokeclaw` command with a live terminal dashboard (TUI). It is a companion to the bash launchers — it starts the same `server.ts` and opens the tunnel the same way (`npx poke tunnel … --name pokeclaw`), and it reads/writes the **same** `~/.pokeclaw/launch.env`, so the two are fully interchangeable.
+PokeClaw ships a unified `pokeclaw` command with a live terminal dashboard (TUI). The single launcher above uses it automatically once it is built. It starts the same `server.ts`, opens the tunnel the same way (`npx poke tunnel … --name pokeclaw`), and reads/writes the **same** `~/.pokeclaw/launch.env`.
 
 Build it once (needs Node.js 18+):
 
@@ -197,14 +163,10 @@ export POKECLAW_ROOTS="$HOME/Documents,$HOME/Desktop,$HOME/Projects"
 
 ### Step 3 — Start PokeClaw
 
-**macOS:**
-```bash
-bash start-pokeclaw-mac.sh
-```
+Use the single launcher (macOS, Linux and Windows):
 
-**Linux:**
 ```bash
-bash start-pokeclaw-linux.sh
+node pokeclaw.js
 ```
 
 Or start each component manually:

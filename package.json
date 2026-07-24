@@ -8,9 +8,8 @@
   },
   "files": [
     "dist",
+    "pokeclaw.js",
     "server.ts",
-    "start-pokeclaw-mac.sh",
-    "start-pokeclaw-linux.sh",
     "README.md"
   ],
   "scripts": {

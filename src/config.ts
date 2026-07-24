@@ -5,8 +5,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 export const HOME = homedir();
 export const CONFIG_DIR = join(HOME, ".pokeclaw");
 /**
- * The CLI shares the exact same config file as the bash launchers
- * (`start-pokeclaw-*.sh`): `~/.pokeclaw/launch.env`. That keeps the whole
+ * The CLI shares the exact same config file as the single launcher
+ * (`pokeclaw.js`): `~/.pokeclaw/launch.env`. That keeps the whole
  * `npx poke` launch flow consistent no matter how PokeClaw was started.
  */
 export const CONFIG_FILE = join(CONFIG_DIR, "launch.env");
