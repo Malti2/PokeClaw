@@ -1,30 +1,3 @@
-#!/usr/bin/env bun
-/**
- * PokeClaw — Local MCP Server for Poke
- * Gives Poke access to your Mac's filesystem and terminal.
- *
- * Tools:
- *   read_file      — Read a file's contents
- *   write_file     — Write or overwrite a file
- *   list_directory — List files/folders in a directory
- *   search_files   — Search for files by glob pattern
- *   search_text    — Search file contents under a directory
- *   run_command    — Execute a shell command and return output
- *   get_env        — Read an environment variable
- *   system_info    — Inspect the local runtime and machine basics
- *
- * Auth:
- *   Set POKECLAW_TOKEN. Token accepted via:
- *     - Query param:  /mcp?token=<your-token>
- *     - Header:       Authorization: Bearer <your-token>
- *
- * Config (env vars):
- *   POKECLAW_PORT   — Port to listen on (default: 3741)
- *   POKECLAW_TOKEN  — Secret token (leave unset to disable auth)
- *   POKECLAW_ROOTS  — Comma-separated allowed root paths (default: $HOME)
- *   POKECLAW_LOG_LEVEL — info | debug
- */
-
 import { createServer } from "http";
 import type { IncomingMessage, ServerResponse } from "http";
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync } from "fs";
@@ -33,7 +6,7 @@ import { resolve, join, dirname } from "path";
 import { homedir, hostname, platform, release, arch } from "os";
 
 const APP_NAME = "PokeClaw";
-const VERSION = "26.0.0";
+const VERSION = "1.1.0-beta";
 let PORT = parseInt(process.env.POKECLAW_PORT ?? "3741", 10);
 let TOKEN = process.env.POKECLAW_TOKEN ?? "";
 const HOME = homedir();
@@ -63,6 +36,9 @@ let serverListening = false;
 let connectionEstablished = false;
 let connectionEstablishedAt: number | null = null;
 let startupNotificationSent = false;
+
+// SSE State
+let sseClient: ServerResponse | null = null;
 
 function timestamp() {
   return new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -149,6 +125,7 @@ const BLOCK = [
   /\bsudo\s+rm\b/,
   /:\(\)\s*\{.*\}/,
   /\bmkfs\b/,
+  /\bmkfs\b/,
   /\bdd\s+if=/,
   />\s*\/dev\/sd[a-z]/,
 ];
@@ -157,7 +134,7 @@ function blocked(cmd: string): boolean {
 }
 
 function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'"'"'`)}'`;
+  return `'${value.replace(/'/g, "'" + '"' + "'" + '"' + "'")}'`;
 }
 
 function execSearchCommand(command: string): string {
@@ -203,7 +180,7 @@ async function toolSearchFiles(args: Record<string, unknown>): Promise<string> {
   if (!args.pattern) throw new Error("pattern is required");
   const root = safePath(String(args.root));
   const pattern = String(args.pattern);
-  const cmd = `find ${shellQuote(root)} -name ${shellQuote(pattern)} 2>/dev/null | head -200`;
+  const cmd = "find " + shellQuote(root) + " -name " + shellQuote(pattern) + " 2>/dev/null | head -200";
   const out = execSearchCommand(cmd);
   return out || "No files matched.";
 }
@@ -216,7 +193,7 @@ async function toolSearchText(args: Record<string, unknown>): Promise<string> {
   const caseSensitive = args.case_sensitive === true;
   const maxResults = Number.isFinite(Number(args.max_results)) ? Math.max(1, Math.min(200, Number(args.max_results))) : 50;
   const flags = caseSensitive ? "" : "-i";
-  const cmd = `rg --hidden --glob '!**/.git/**' --glob '!**/node_modules/**' --line-number --color never ${flags} ${shellQuote(query)} ${shellQuote(root)} 2>/dev/null | head -${maxResults}`;
+  const cmd = "rg --hidden --glob '!**/.git/**' --glob '!**/node_modules/**' --line-number --color never " + flags + " " + shellQuote(query) + " " + shellQuote(root) + " 2>/dev/null | head -" + maxResults;
   const out = execSearchCommand(cmd);
   return out || "No matches found.";
 }
@@ -257,22 +234,54 @@ function readSystemUsage(): { cpuPercent: string; memoryPercent: string } {
 function toolSystemInfo(): string {
   const systemUsage = readSystemUsage();
   return [
-    `app=${APP_NAME}`,
-    `version=${VERSION}`,
-    `platform=${platform()}`,
-    `release=${release()}`,
-    `arch=${arch()}`,
-    `host=${hostname()}`,
-    `home=${HOME}`,
-    `roots=${ROOTS.join(", ")}`,
-    `auth=${TOKEN ? "enabled" : "disabled"}`,
-    `log_level=${LOG_LEVEL}`,
-    `cpu_percent=${systemUsage.cpuPercent}`,
-    `memory_percent=${systemUsage.memoryPercent}`,
-    `bun=${process.versions.bun ?? "(unknown)"}`,
-    `node=${process.version}`,
-    `cwd=${process.cwd()}`,
+    "app=" + APP_NAME,
+    "version=" + VERSION,
+    "platform=" + platform(),
+    "release=" + release(),
+    "arch=" + arch(),
+    "host=" + hostname(),
+    "home=" + HOME,
+    "roots=" + ROOTS.join(", "),
+    "auth=" + (TOKEN ? "enabled" : "disabled"),
+    "log_level=" + LOG_LEVEL,
+    "cpu_percent=" + systemUsage.cpuPercent,
+    "memory_percent=" + systemUsage.memoryPercent,
+    "bun=" + (process.versions.bun ?? "(unknown)"),
+    "node=" + process.version,
+    "cwd=" + process.cwd(),
   ].join("\n");
+}
+
+function toolSystemStat(): string {
+  let cpuTemp = "unknown";
+  let diskUsage = "unknown";
+  try {
+    if (platform() === "darwin") {
+      cpuTemp = execSync("sysctl -n machdep.cpu.temperature", { encoding: "utf-8" }).trim() + "°C";
+    } else if (platform() === "linux") {
+      cpuTemp = execSync("cat /sys/class/thermal/thermal_zone0/temp", { encoding: "utf-8" }).trim();
+      cpuTemp = (parseInt(cpuTemp) / 1000).toFixed(1) + "°C";
+    }
+  } catch { /* skip */ }
+  try {
+    diskUsage = execSync("df -h", { encoding: "utf-8" }).trim();
+  } catch { /* skip */ }
+  return "CPU Temperature: " + cpuTemp + "\n\nDisk Usage:\n" + diskUsage;
+}
+
+function toolClipboardSync(args: Record<string, unknown>): string {
+  const action = String(args.action ?? "read");
+  if (action === "write") {
+    const text = String(args.text ?? "");
+    const cmd = platform() === "darwin" ? "pbcopy" : "xclip -selection clipboard";
+    const child = require("child_process").spawn(cmd, { shell: true });
+    child.stdin.write(text);
+    child.stdin.end();
+    return "Copied to clipboard.";
+  } else {
+    const cmd = platform() === "darwin" ? "pbpaste" : "xclip -selection clipboard -o";
+    return execSync(cmd, { encoding: "utf-8" });
+  }
 }
 
 function toolRunCommand(args: Record<string, unknown>): string {
@@ -305,67 +314,6 @@ function toolGetEnv(args: Record<string, unknown>): string {
   return val !== undefined ? val : "(not set)";
 }
 
-function toolCreateApp(args: Record<string, unknown>): string {
-  const name = String(args.name ?? "").trim();
-  const html = String(args.html ?? "");
-  if (!name) return "Error: name is required";
-  if (!html) return "Error: html content is required";
-  const appDir = join(HOME, ".pokeclaw", "apps", name);
-  const htmlPath = join(appDir, "app.html");
-  mkdirSync(appDir, { recursive: true });
-  writeFileSync(htmlPath, html, "utf-8");
-  const runner = join(HOME, ".pokeclaw", "webview-runner");
-  if (existsSync(runner)) {
-    const w = String(Number(args.width) || 800);
-    const h = String(Number(args.height) || 600);
-    const child = spawn(runner, [htmlPath, w, h, name], { detached: true, stdio: "ignore" });
-    child.unref();
-  }
-  return `✓ Created ${name}\n  Path: ${htmlPath}`;
-}
-
-function toolListApps(): string {
-  const appsDir = join(HOME, ".pokeclaw", "apps");
-  if (!existsSync(appsDir)) return "No apps created yet.";
-  const entries = readdirSync(appsDir).filter((n) =>
-    statSync(join(appsDir, n)).isDirectory() && existsSync(join(appsDir, n, "app.html"))
-  );
-  if (!entries.length) return "No apps created yet.";
-  return entries.join("\n");
-}
-
-function toolEditApp(args: Record<string, unknown>): string {
-  const name = String(args.name ?? "").trim();
-  const html = String(args.html ?? "");
-  if (!name) return "Error: name is required";
-  if (!html) return "Error: html content is required";
-  const htmlPath = join(HOME, ".pokeclaw", "apps", name, "app.html");
-  if (!existsSync(htmlPath)) return `Error: app "${name}" not found`;
-  writeFileSync(htmlPath, html, "utf-8");
-  const runner = join(HOME, ".pokeclaw", "webview-runner");
-  if (existsSync(runner)) {
-    const w = String(Number(args.width) || 800);
-    const h = String(Number(args.height) || 600);
-    const child = spawn(runner, [htmlPath, w, h, name], { detached: true, stdio: "ignore" });
-    child.unref();
-  }
-  return `✓ Updated ${name}`;
-}
-
-function toolOpenApp(args: Record<string, unknown>): string {
-  const name = String(args.name ?? "").trim();
-  if (!name) return "Error: name is required";
-  const htmlPath = join(HOME, ".pokeclaw", "apps", name, "app.html");
-  if (!existsSync(htmlPath)) return `Error: app "${name}" not found`;
-  const runner = join(HOME, ".pokeclaw", "webview-runner");
-  if (!existsSync(runner)) return "Error: webview runner not found";
-  const w = String(Number(args.width) || 800);
-  const h = String(Number(args.height) || 600);
-  const child = spawn(runner, [htmlPath, w, h, name], { detached: true, stdio: "ignore" });
-  child.unref();
-  return `✓ Opened ${name}`;
-}
-
 function formatDuration(totalSeconds: number): string {
   const seconds = Math.max(0, Math.floor(totalSeconds));
   const days = Math.floor(seconds / 86400);
@@ -373,10 +321,10 @@ function formatDuration(totalSeconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainder = seconds % 60;
   const parts: string[] = [];
-  if (days) parts.push(`${days}d`);
-  if (hours || days) parts.push(`${hours}h`);
-  if (minutes || hours || days) parts.push(`${minutes}m`);
-  parts.push(`${remainder}s`);
+  if (days) parts.push(days + "d");
+  if (hours || days) parts.push(hours + "h");
+  if (minutes || hours || days) parts.push(minutes + "m");
+  parts.push(remainder + "s");
   return parts.join(' ');
 }
 
@@ -411,32 +359,32 @@ function notificationTargetSummary(): string {
 function renderStatusLines(): string[] {
   const stats = statsPayload();
   return [
-    `status=${stats.status}`,
-    `server_listening=${stats.connection.serverListening}`,
-    `mcp_connected=${stats.connection.connectionEstablished}`,
-    `mcp_connected_at=${stats.connection.connectionEstablishedAt ?? '(not yet)'}`,
-    `startup_notification_sent=${stats.connection.startupNotificationSent}`,
-    `notification_endpoint=${notificationTargetSummary()}`,
-    `uptime=${stats.uptime}`,
-    `commands_today=${stats.commandsToday}`,
-    `top_commands=${stats.topCommands.length ? stats.topCommands.map((item) => `${item.command}:${item.count}`).join(', ') : '(none)'}`,
+    "status=" + stats.status,
+    "server_listening=" + stats.connection.serverListening,
+    "mcp_connected=" + stats.connection.connectionEstablished,
+    "mcp_connected_at=" + (stats.connection.connectionEstablishedAt ?? '(not yet)'),
+    "startup_notification_sent=" + stats.connection.startupNotificationSent,
+    "notification_endpoint=" + notificationTargetSummary(),
+    "uptime=" + stats.uptime,
+    "commands_today=" + stats.commandsToday,
+    "top_commands=" + (stats.topCommands.length ? stats.topCommands.map((item) => item.command + ":" + item.count).join(', ') : '(none)'),
   ];
 }
 
 function renderInfoLines(): string[] {
   return [
     ...toolSystemInfo().split('\n'),
-    `server_listening=${serverListening}`,
-    `mcp_connected=${connectionEstablished}`,
-    `mcp_connected_at=${connectionEstablishedAt ? new Date(connectionEstablishedAt).toISOString() : '(not yet)'}`,
-    `startup_notification_sent=${startupNotificationSent}`,
-    `notification_endpoint=${notificationTargetSummary()}`,
+    "server_listening=" + serverListening,
+    "mcp_connected=" + connectionEstablished,
+    "mcp_connected_at=" + (connectionEstablishedAt ? new Date(connectionEstablishedAt).toISOString() : '(not yet)'),
+    "startup_notification_sent=" + startupNotificationSent,
+    "notification_endpoint=" + notificationTargetSummary(),
   ];
 }
 
 function printConsoleBlock(title: string, lines: string[]) {
-  emitConsole('stdout', `${title}`);
-  for (const line of lines) emitConsole('stdout', `  ${line}`);
+  emitConsole('stdout', title);
+  for (const line of lines) emitConsole('stdout', "  " + line);
 }
 
 function handleConsoleCommand(rawCommand: string) {
@@ -459,7 +407,7 @@ function handleConsoleCommand(rawCommand: string) {
       ]);
       return;
     default:
-      emitConsole('stdout', `Unknown console command: ${command}`);
+      emitConsole('stdout', "Unknown console command: " + command);
       emitConsole('stdout', 'Type "status", "info", or "help".');
   }
 }
@@ -491,10 +439,10 @@ async function notifyPokePlatform(event: string, payload: Record<string, unknown
     version: VERSION,
     timestamp: new Date().toISOString(),
     port: PORT,
-    localUrl: `http://127.0.0.1:${PORT}/mcp`,
-    healthUrl: `http://127.0.0.1:${PORT}/health`,
+    localUrl: "http://127.0.0.1:" + PORT + "/mcp",
+    healthUrl: "http://127.0.0.1:" + PORT + "/health",
     authEnabled: Boolean(TOKEN),
-    roots: ROOTS.length,
+    roots: ROOTS,
     ...payload,
   };
 
@@ -502,7 +450,7 @@ async function notifyPokePlatform(event: string, payload: Record<string, unknown
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    if (NOTIFY_TOKEN) headers.Authorization = `Bearer ${NOTIFY_TOKEN}`;
+    if (NOTIFY_TOKEN) headers.Authorization = "Bearer " + NOTIFY_TOKEN;
 
     const response = await fetch(NOTIFY_ENDPOINT, {
       method: 'POST',
@@ -511,13 +459,13 @@ async function notifyPokePlatform(event: string, payload: Record<string, unknown
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
+      throw new Error(("HTTP " + response.status + " " + response.statusText).trim());
     }
 
     return true;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    log('warn', `Failed to notify Poke platform for ${event}: ${message}`);
+    log('warn', "Failed to notify Poke platform for " + event + ": " + message);
     return false;
   }
 }
@@ -541,10 +489,8 @@ const TOOLS = [
   { name: "run_command", description: "Run a shell command on the Mac and return stdout/stderr. Commands run in your home directory.", inputSchema: { type: "object", properties: { command: { type: "string" }, cwd: { type: "string" }, timeout_ms: { type: "number" } }, required: ["command"] } },
   { name: "get_env", description: "Read an environment variable from the Mac.", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
   { name: "system_info", description: "Get machine and runtime details for debugging and support.", inputSchema: { type: "object", properties: {} } },
-  { name: "create_app", description: "Create a native desktop app from HTML content. The HTML should use a native macOS design — system font (San Francisco via -apple-system), title bar respect, rounded corners, minimal chrome. Choose width/height that fit the app well (e.g. calculator ~300x400, editor ~900x600). Writes the HTML to ~/.pokeclaw/apps/ and opens it in a dedicated WebKit window (not a browser).", inputSchema: { type: "object", properties: { name: { type: "string", description: "App name used as folder name and window title" }, html: { type: "string", description: "Full HTML content including <style> and <script> tags" }, width: { type: "number", description: "Window width in pixels" }, height: { type: "number", description: "Window height in pixels" } }, required: ["name", "html", "width", "height"] } },
-  { name: "list_apps", description: "List all apps created via create_app.", inputSchema: { type: "object", properties: {} } },
-  { name: "edit_app", description: "Update an existing app's HTML content and reopen it. Same as create_app but for updates.", inputSchema: { type: "object", properties: { name: { type: "string" }, html: { type: "string", description: "Full HTML content including <style> and <script> tags" }, width: { type: "number" }, height: { type: "number" } }, required: ["name", "html"] } },
-  { name: "open_app", description: "Open an existing app in its native window (re-launch the WebKit runner).", inputSchema: { type: "object", properties: { name: { type: "string" }, width: { type: "number" }, height: { type: "number" } }, required: ["name"] } },
+  { name: "system_stat", description: "Report CPU temperature and disk usage (for all drives).", inputSchema: { type: "object", properties: {} } },
+  { name: "clipboard_sync", description: "Read or write to the system clipboard.", inputSchema: { type: "object", properties: { action: { type: "string", enum: ["read", "write"] }, text: { type: "string" } }, required: ["action"] } },
 ];
 
 async function handleRPC(body: Record<string, unknown>): Promise<unknown> {
@@ -580,22 +526,20 @@ async function handleRPC(body: Record<string, unknown>): Promise<unknown> {
           case "run_command": text = toolRunCommand(args); break;
           case "get_env": text = toolGetEnv(args); break;
           case "system_info": text = toolSystemInfo(); break;
-          case "create_app": text = toolCreateApp(args); break;
-          case "list_apps": text = toolListApps(); break;
-          case "edit_app": text = toolEditApp(args); break;
-          case "open_app": text = toolOpenApp(args); break;
-          default: return err(-32601, `Unknown tool: ${toolName}`);
+          case "system_stat": text = toolSystemStat(); break;
+          case "clipboard_sync": text = toolClipboardSync(args); break;
+          default: return err(-32601, "Unknown tool: " + toolName);
         }
         return ok({ content: [{ type: "text", text }] });
       }
       case "ping":
         return ok({});
       default:
-        return err(-32601, `Method not found: ${method}`);
+        return err(-32601, "Method not found: " + method);
     }
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
-    log("error", `Error in ${method}: ${message}`);
+    log("error", "Error in " + method + ": " + message);
     return err(-32603, message);
   }
 }
@@ -612,7 +556,7 @@ function json(res: ServerResponse, status: number, data: unknown) {
 }
 
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-  const base = `http://localhost:${PORT}`;
+  const base = "http://localhost:" + PORT;
   const url = new URL(req.url ?? "/", base);
 
   if (req.method === "OPTIONS") {
@@ -656,29 +600,54 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       return;
     }
 
-    if (req.method !== "POST") {
-      json(res, 405, { error: "Method Not Allowed" });
+    // SSE Transport Implementation
+    if (req.method === "GET") {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Access-Control-Allow-Origin": "*",
+      });
+
+      // Send initial endpoint event as per SSE standard
+      const endpointUrl = `${base}/mcp`;
+      res.write(`event: endpoint\ndata: ${endpointUrl}\n\n`);
+
+      sseClient = res;
+      req.on("close", () => {
+        if (sseClient === res) sseClient = null;
+      });
       return;
     }
 
-    let raw = "";
-    for await (const chunk of req) raw += chunk;
+    if (req.method === "POST") {
+      let raw = "";
+      for await (const chunk of req) raw += chunk;
 
-    let body: Record<string, unknown>;
-    try {
-      body = JSON.parse(raw);
-    } catch {
-      json(res, 400, { error: "Invalid JSON" });
+      let body: Record<string, unknown>;
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        json(res, 400, { error: "Invalid JSON" });
+        return;
+      }
+
+      const result = await handleRPC(body);
+      
+      // In SSE transport, POST responses for non-notifications are sent back via JSON
+      if (result === null) {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
+      // If we have an SSE client, we could also emit messages there if they were notifications,
+      // but standard MCP SSE usually responds to the POST request directly for the specific call.
+      json(res, 200, result);
       return;
     }
 
-    const result = await handleRPC(body);
-    if (result === null) {
-      res.writeHead(204);
-      res.end();
-      return;
-    }
-    json(res, 200, result);
+    json(res, 405, { error: "Method Not Allowed" });
     return;
   }
 
@@ -694,22 +663,22 @@ process.on("SIGTERM", () => {
 
 server.listen(PORT, "127.0.0.1", () => {
   serverListening = true;
-  emitConsole("stdout", `PokeClaw ${VERSION} is running`);
-  emitConsole("stdout", `Local  : http://127.0.0.1:${PORT}/mcp`);
-  emitConsole("stdout", `Health : http://127.0.0.1:${PORT}/health`);
+  emitConsole("stdout", "PokeClaw " + VERSION + " is running");
+  emitConsole("stdout", "Local  : http://127.0.0.1:" + PORT + "/mcp");
+  emitConsole("stdout", "Health : http://127.0.0.1:" + PORT + "/health");
   if (TOKEN) {
-    emitConsole("stdout", `Auth   : token required  (?token=... or Authorization: Bearer ...)`);
+    emitConsole("stdout", "Auth   : token required  (?token=... or Authorization: Bearer ...)");
   } else {
-    emitConsole("stdout", `Auth   : NONE — set POKECLAW_TOKEN to require a token`);
+    emitConsole("stdout", "Auth   : NONE — set POKECLAW_TOKEN to require a token");
   }
-  emitConsole("stdout", `Roots  : ${ROOTS.join(", ")}`);
-  emitConsole("stdout", `Tools  : ${TOOLS.map((tool) => tool.name).join(", ")}`);
-  pushRecentLog(`[${timestamp()}] INFO server started on 127.0.0.1:${PORT}`);
+  emitConsole("stdout", "Roots  : " + ROOTS.join(", "));
+  emitConsole("stdout", "Tools  : " + TOOLS.map((tool) => tool.name).join(", "));
+  pushRecentLog("[" + timestamp() + "] INFO server started on 127.0.0.1:" + PORT);
   void notifyPokePlatform('server_started', {
     connection: statsPayload().connection,
   }).then((sent) => {
     startupNotificationSent = sent;
   });
   installStdinListener();
-  emitConsole("stdout", `Waiting for Poke…`);
+  emitConsole("stdout", "Waiting for Poke…");
 });

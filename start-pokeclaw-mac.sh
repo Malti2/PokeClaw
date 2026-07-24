@@ -9,29 +9,21 @@
 ##   POKECLAW_PORT            — port (default: 3741)
 ##   POKECLAW_ROOTS           — comma-separated allowed paths (default: $HOME)
 ##   POKECLAW_TOKEN           — secret auth token
-##   POKECLAW_TUNNEL_ENABLED  — 1 to enable cloudflared tunnel
-##   POKECLAW_TUNNEL_MODE     — quick | named (default: quick)
-##   POKECLAW_TUNNEL_NAME     — tunnel name for named mode (default: PokeClaw)
-##   POKECLAW_TUNNEL_HOSTNAME — optional DNS hostname for named mode
+##   POKECLAW_TUNNEL_ENABLED  — 1 to enable tunnel (default: 1)
 ##
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="$HOME/.pokeclaw"
 CONFIG_FILE="$CONFIG_DIR/launch.env"
-TUNNEL_CONFIG_FILE="$CONFIG_DIR/PokeClaw.yaml"
 PORT="${POKECLAW_PORT:-3741}"
 ROOTS="${POKECLAW_ROOTS:-$HOME}"
 TOKEN="${POKECLAW_TOKEN:-}"
-TUNNEL_ENABLED="${POKECLAW_TUNNEL_ENABLED:-}"
-TUNNEL_MODE="${POKECLAW_TUNNEL_MODE:-quick}"
-TUNNEL_NAME="${POKECLAW_TUNNEL_NAME:-PokeClaw}"
-TUNNEL_HOSTNAME="${POKECLAW_TUNNEL_HOSTNAME:-}"
+TUNNEL_ENABLED="${POKECLAW_TUNNEL_ENABLED:-1}"
 QUIET=false
 RUNTIME=""
 SERVER_PID=""
-TUNNEL_PID=""
-CLOUDflared=""
+MENU_BAR_PID=""
 
 for arg in "$@"; do
   case "$arg" in
@@ -47,10 +39,27 @@ fi
 PORT="${POKECLAW_PORT:-${PORT:-3741}}"
 ROOTS="${POKECLAW_ROOTS:-${ROOTS:-$HOME}}"
 TOKEN="${POKECLAW_TOKEN:-${TOKEN:-}}"
-TUNNEL_ENABLED="${POKECLAW_TUNNEL_ENABLED:-${TUNNEL_ENABLED:-}}"
-TUNNEL_MODE="${POKECLAW_TUNNEL_MODE:-${TUNNEL_MODE:-quick}}"
-TUNNEL_NAME="${POKECLAW_TUNNEL_NAME:-${TUNNEL_NAME:-PokeClaw}}"
-TUNNEL_HOSTNAME="${POKECLAW_TUNNEL_HOSTNAME:-${TUNNEL_HOSTNAME:-}}"
+TUNNEL_ENABLED="${POKECLAW_TUNNEL_ENABLED:-${TUNNEL_ENABLED:-1}}"
+
+# Startup checks for required binaries
+check_binaries() {
+  if ! command -v npx >/dev/null 2>&1; then
+    echo "❌ Error: 'npx' is not installed. Please install Node.js (https://nodejs.org)."
+    exit 1
+  fi
+  if ! command -v rg >/dev/null 2>&1; then
+    echo "❌ Error: 'rg' (ripgrep) is not installed. Please install it (e.g., 'brew install ripgrep')."
+    exit 1
+  fi
+}
+
+check_poke_login() {
+  if ! npx poke login --check >/dev/null 2>&1; then
+    echo "⚠️  You are not logged in to Poke."
+    echo "   Running 'npx poke login' now..."
+    npx poke login
+  fi
+}
 
 save_config() {
   mkdir -p "$CONFIG_DIR"
@@ -59,9 +68,6 @@ save_config() {
     printf 'export POKECLAW_ROOTS=%q\n' "$ROOTS"
     printf 'export POKECLAW_TOKEN=%q\n' "$TOKEN"
     printf 'export POKECLAW_TUNNEL_ENABLED=%q\n' "$TUNNEL_ENABLED"
-    printf 'export POKECLAW_TUNNEL_MODE=%q\n' "$TUNNEL_MODE"
-    printf 'export POKECLAW_TUNNEL_NAME=%q\n' "$TUNNEL_NAME"
-    printf 'export POKECLAW_TUNNEL_HOSTNAME=%q\n' "$TUNNEL_HOSTNAME"
   } > "$CONFIG_FILE"
 }
 
@@ -116,75 +122,11 @@ ensure_runtime() {
   fi
 }
 
-ensure_webview_runner() {
-  local runner="$CONFIG_DIR/webview-runner"
-  [ -f "$runner" ] && return 0
-  mkdir -p "$CONFIG_DIR"
-  local src="$CONFIG_DIR/webview-runner.swift"
-  cat > "$src" << 'SWIFT'
-import Cocoa
-import WebKit
-
-class AppDelegate: NSObject, NSApplicationDelegate {
-    var window: NSWindow!
-    var webView: WKWebView!
-
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        let args = CommandLine.arguments
-        guard args.count > 1 else { NSApp.terminate(nil); return }
-        let htmlPath = args[1]
-        let w = args.count > 2 ? Int(args[2]) ?? 800 : 800
-        let h = args.count > 3 ? Int(args[3]) ?? 600 : 600
-
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: w, height: h),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
-            backing: .buffered, defer: false)
-        window.title = args.count > 4 ? args[4] : (htmlPath as NSString).lastPathComponent
-
-        webView = WKWebView(frame: NSRect(x: 0, y: 0, width: w, height: h))
-        window.contentView = webView
-
-        let url = URL(fileURLWithPath: htmlPath)
-        webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
-
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-}
-
-let app = NSApplication.shared
-let delegate = AppDelegate()
-app.delegate = delegate
-app.run()
-SWIFT
-  echo "   Compiling webview runner…"
-  xcrun swiftc -o "$runner" "$src" 2>/dev/null && rm "$src"
-  if [ -f "$runner" ]; then
-    echo "   ✅  Webview runner ready"
-  else
-    echo "   ⚠️   Webview runner compilation failed"
-  fi
-}
-
-ensure_cloudflared() {
-  if command -v cloudflared >/dev/null 2>&1; then
-    CLOUDflared="$(command -v cloudflared)"
-    echo "✅  cloudflared already installed"
-    return
-  fi
-
-  echo ""
-  echo "Step 3 — Installing cloudflared…"
-  brew install cloudflared
-  CLOUDflared="$(command -v cloudflared)"
-  echo "✅  cloudflared installed"
-}
-
 ensure_dependencies() {
   cd "$SCRIPT_DIR"
   if [ "$RUNTIME" = "node" ]; then
     if [ ! -d "$SCRIPT_DIR/node_modules" ] || [ ! -x "$SCRIPT_DIR/node_modules/.bin/ts-node" ]; then
-      echo "Step 4 — Installing node dependencies…"
+      echo "Step 3 — Installing node dependencies…"
       npm init -y >/dev/null 2>&1 || true
       npm install ts-node typescript @types/node >/dev/null
       echo "✅  Dependencies installed"
@@ -214,75 +156,38 @@ find_port_pid() {
   printf '%s' "$pid"
 }
 
-write_tunnel_config() {
-  local tunnel_id="$1"
-  local credentials_file="$2"
-  mkdir -p "$CONFIG_DIR"
-  cat > "$TUNNEL_CONFIG_FILE" <<YAML
-tunnel: ${tunnel_id}
-credentials-file: ${credentials_file}
-ingress:
-  - service: http://127.0.0.1:${PORT}
-  - service: http_status:404
-YAML
-}
-
-create_named_tunnel() {
-  local output tunnel_id credentials_file route_output
-  output="$($CLOUDflared tunnel create "$TUNNEL_NAME" 2>&1 || true)"
-  tunnel_id="$(printf '%s\n' "$output" | grep -Eo '[0-9a-f]{8}-[0-9a-f-]{27,}' | head -n1 || true)"
-  credentials_file="$(printf '%s\n' "$output" | sed -nE 's/.*(\/[^[:space:]]+\.json).*/\1/p' | head -n1 || true)"
-
-  if [ -z "$tunnel_id" ]; then
-    echo "❌  Could not create or detect the named tunnel id for ${TUNNEL_NAME}."
-    echo "$output"
-    exit 1
-  fi
-
-  if [ -z "$credentials_file" ]; then
-    credentials_file="$CONFIG_DIR/${TUNNEL_NAME}.json"
-  fi
-
-  write_tunnel_config "$tunnel_id" "$credentials_file"
-
-  if [ -n "$TUNNEL_HOSTNAME" ]; then
-    route_output="$($CLOUDflared tunnel route dns "$TUNNEL_NAME" "$TUNNEL_HOSTNAME" 2>&1 || true)"
-    if [ -n "$route_output" ]; then
-      echo "$route_output"
-    fi
-  fi
-
-  echo "✅  PokeClaw tunnel ready"
-}
-
 run_tunnel() {
-  local tunnel_cmd
-  if [[ "$(printf %s "$TUNNEL_MODE" | tr '[:upper:]' '[:lower:]')" == "named" ]]; then
-    create_named_tunnel
-    tunnel_cmd=(tunnel --config "$TUNNEL_CONFIG_FILE" run "$TUNNEL_NAME")
-  else
-    tunnel_cmd=(tunnel --url "http://127.0.0.1:${PORT}")
-  fi
-
   echo ""
-  echo "🔗  PokeClaw tunnel ready"
-  "$CLOUDflared" "${tunnel_cmd[@]}"
+  echo "🔗  Connecting to Poke tunnel..."
+  npx poke tunnel http://localhost:"$PORT" --name pokeclaw
+}
+
+launch_menu_bar() {
+  (
+    while true; do
+      echo "PokeClaw Tunnel: Connected (tunnel.poke.com)" > "$CONFIG_DIR/status.txt"
+      sleep 10
+    done
+  ) &
+  MENU_BAR_PID=$!
 }
 
 cleanup() {
   if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
     kill "$SERVER_PID" 2>/dev/null || true
   fi
-  if [ -n "${TUNNEL_PID:-}" ] && kill -0 "$TUNNEL_PID" 2>/dev/null; then
-    kill "$TUNNEL_PID" 2>/dev/null || true
+  if [ -n "${MENU_BAR_PID:-}" ] && kill -0 "$MENU_BAR_PID" 2>/dev/null; then
+    kill "$MENU_BAR_PID" 2>/dev/null || true
   fi
 }
 
 trap cleanup EXIT INT TERM
 
 echo ""
-echo "🐾  PokeClaw — macOS Setup & Launch"
+echo "🌴  PokeClaw — macOS Setup & Launch"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+check_binaries
 
 if command -v brew >/dev/null 2>&1; then
   echo "✅  Homebrew already installed"
@@ -303,13 +208,11 @@ else
 fi
 
 ensure_runtime
-ensure_webview_runner
-ensure_cloudflared
 ensure_dependencies
 
 if [ "$QUIET" = false ]; then
   echo ""
-  echo "Step 5 — Configuration"
+  echo "Step 4 — Configuration"
   echo "────────────────────────────────────────"
 
   PORT="$(prompt '   Port' "$PORT")"
@@ -322,13 +225,6 @@ if [ "$QUIET" = false ]; then
 
   if confirm '   Enable PokeClaw' Y; then
     TUNNEL_ENABLED=1
-    if confirm '   Use named tunnel mode' N; then
-      TUNNEL_MODE="named"
-      TUNNEL_NAME="$(prompt '   Tunnel name' "$TUNNEL_NAME")"
-      TUNNEL_HOSTNAME="$(prompt '   Hostname for the named tunnel (optional)' "$TUNNEL_HOSTNAME")"
-    else
-      TUNNEL_MODE="quick"
-    fi
   else
     TUNNEL_ENABLED=0
   fi
@@ -340,7 +236,10 @@ else
   echo "   POKECLAW_ROOTS         = ${ROOTS:-$HOME}"
   echo "   POKECLAW_TOKEN         = $([ -n "$TOKEN" ] && echo '(set)' || echo '(not set)')"
   echo "   POKECLAW_TUNNEL_ENABLED = ${TUNNEL_ENABLED:-0}"
-  echo "   POKECLAW_TUNNEL_MODE    = ${TUNNEL_MODE:-quick}"
+fi
+
+if [ "$TUNNEL_ENABLED" = "1" ]; then
+  check_poke_login
 fi
 
 existing_pid="$(find_port_pid)"
@@ -352,6 +251,7 @@ if [ -n "$existing_pid" ]; then
 fi
 
 launch_server
+launch_menu_bar
 sleep 1
 
 echo ""

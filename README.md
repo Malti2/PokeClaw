@@ -1,4 +1,4 @@
-# 🐾 PokeClaw
+# 🌴 PokeClaw
 
 **PokeClaw** is a local [MCP](https://modelcontextprotocol.io) server that gives [Poke](https://poke.com) access to your Mac or Linux machine's filesystem and terminal.
 
@@ -19,10 +19,7 @@ By default, Poke lives in the cloud and doesn't have access to files on your com
 
 PokeClaw works on **macOS** (any Mac) and **Linux** (Debian/Ubuntu, Fedora/RHEL, Arch, and compatible distributions).
 
-### Native Mac companion
-
-A native SwiftUI companion now lives in `native-mac/` and gives PokeClaw a Mac-first surface for menu bar access, login startup, notifications, and log export.
-
+The secure tunnel is created with [Poke's own CLI](https://poke.com) via `npx poke tunnel` — no separate tunnel binary to install or configure.
 
 ---
 
@@ -54,11 +51,12 @@ bash start-pokeclaw-mac.sh
 The macOS launcher will:
 1. **Install Homebrew** if not present
 2. **Install Bun** (preferred) or use Node.js if already installed
-3. **Install cloudflared** via Homebrew if not present
-4. **Install dependencies**
-5. **Guide you through configuration** — port, allowed folders, auth token
-6. **Optionally save settings** to `~/.pokeclaw/launch.env` for future sessions
-7. **Start the PokeClaw server and tunnel**, which are handled directly by the launcher script
+3. **Install dependencies**
+4. **Guide you through configuration** — port, allowed folders, auth token
+5. **Optionally save settings** to `~/.pokeclaw/launch.env` for future sessions
+6. **Start the PokeClaw server and the Poke tunnel** (`npx poke tunnel`), which are handled directly by the launcher script
+
+> **Prerequisites:** the launcher needs `npx` (bundled with [Node.js](https://nodejs.org)) for `npx poke`, and `rg` ([ripgrep](https://github.com/BurntSushi/ripgrep), e.g. `brew install ripgrep`). If you are not logged in to Poke yet, the launcher runs `npx poke login` for you.
 
 > **Quiet mode:** Relaunch with `bash start-pokeclaw-mac.sh --quiet` to skip all prompts and use your saved settings.
 
@@ -73,14 +71,15 @@ bash start-pokeclaw-linux.sh
 The Linux launcher performs the same setup as the macOS version, with the following differences:
 
 - **No Homebrew** — uses your system package manager instead (`apt` for Debian/Ubuntu, `dnf` for Fedora/RHEL, `pacman` for Arch)
-- `cloudflared` is installed via the official Cloudflare package repository (apt/dnf) or AUR (Arch)
+- Missing prerequisites such as `curl` and `rg` (ripgrep) are installed via your package manager
+- The tunnel is created with `npx poke tunnel` — the same way as on macOS
 - Settings are saved to `~/.pokeclaw/launch.env`
 - Port-in-use detection uses `lsof` with a `fuser` fallback
 
 Supported distributions:
 - Debian / Ubuntu (and derivatives): uses `apt`
 - Fedora / RHEL / CentOS Stream: uses `dnf`
-- Arch Linux (and derivatives): uses `pacman` + AUR helper (`yay` or `paru`) for cloudflared
+- Arch Linux (and derivatives): uses `pacman`
 
 > **Quiet mode:** Relaunch with `bash start-pokeclaw-linux.sh --quiet` to skip all prompts and use your saved settings.
 
@@ -91,9 +90,9 @@ If you prefer to configure things yourself:
 
 ### Prerequisites
 
-- Node.js 18+ or Bun
-- **macOS:** cloudflared via `brew install cloudflared`
-- **Linux:** cloudflared via your package manager or from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+- Node.js 18+ (provides `npx`, used for `npx poke tunnel`) or Bun for running the server
+- `rg` ([ripgrep](https://github.com/BurntSushi/ripgrep)) for the `search_text` tool
+- A [Poke](https://poke.com) account (`npx poke login`) to open the tunnel
 
 ### Step 1 — Set up the server
 
@@ -102,13 +101,12 @@ mkdir -p ~/pokeclaw
 cp server.ts ~/pokeclaw/server.ts
 cd ~/pokeclaw
 bun init -y
-bun add glob
 ```
 
-Or with npm:
+`server.ts` has no external runtime dependencies — Bun runs it directly. If you prefer Node.js, install the TypeScript runner instead:
 
 ```bash
-npm init -y && npm install glob && npm install -D typescript @types/node
+npm init -y && npm install -D ts-node typescript @types/node
 ```
 
 ### Step 2 — Configure environment variables
@@ -156,19 +154,19 @@ Or start each component manually:
 bun run ~/pokeclaw/server.ts
 
 # Terminal 2
-cloudflared tunnel --url http://127.0.0.1:3741
+npx poke tunnel http://localhost:3741 --name pokeclaw
 ```
 
 ---
 
 ## Step 4 — Connect to Poke
 
-1. Copy the tunnel URL printed by the script (e.g. `https://random-words.trycloudflare.com`)
+1. Copy the public tunnel URL printed by `npx poke tunnel` (shown by the launcher when the tunnel connects)
 2. Go to **[Poke](https://poke.com) → Settings → Integrations → Add MCP Server**
 3. Name: `PokeClaw`
-4. URL: `https://random-words.trycloudflare.com/mcp?token=your-secret-token-here`
+4. URL: `<your-tunnel-url>/mcp?token=your-secret-token-here`
    - The token is passed as a query parameter — **no Authorization header needed**
-   - If you did not set a token, use: `https://random-words.trycloudflare.com/mcp`
+   - If you did not set a token, use: `<your-tunnel-url>/mcp`
 5. Save — Poke will verify the connection
 6. Test it: tell Poke "use PokeClaw to list my Desktop files"
 
@@ -249,11 +247,11 @@ systemctl --user enable --now pokeclaw
 
 ## Security notes
 
-- Server listens on `127.0.0.1` only — not exposed without cloudflared
+- Server listens on `127.0.0.1` only — not exposed without the tunnel
 - Set `POKECLAW_TOKEN` so only Poke (with the token) can call it
 - Token can be passed as `?token=...` query param OR `Authorization: Bearer ...` header
 - Limit `POKECLAW_ROOTS` to folders Poke actually needs
-- Stop cloudflared or the server anytime to instantly revoke all access
+- Stop the tunnel (`npx poke tunnel`) or the server anytime to instantly revoke all access
 - Dangerous commands (`rm -rf /`, `sudo rm`, fork bombs) are blocked in code
 
 ---
@@ -263,17 +261,16 @@ systemctl --user enable --now pokeclaw
 | Problem | Fix |
 |---|---|
 | "port already in use" | Set `POKECLAW_PORT=3742` (or any free port) |
-| Poke says "connection refused" | Make sure both `server.ts` AND cloudflared are running |
-| cloudflared URL changes | Restart → get new URL → update in [Poke settings](https://poke.com/settings/integrations) |
+| Poke says "connection refused" | Make sure both `server.ts` AND the tunnel (`npx poke tunnel`) are running |
+| Tunnel URL changes | Restart → get new URL → update in [Poke settings](https://poke.com/settings/integrations) |
 | Permission denied on a file | Add its parent directory to `POKECLAW_ROOTS` |
 | Command times out | Pass `timeout_ms` in your request to Poke |
 | Bun not found after install | Run `source ~/.zshrc` (macOS) or `source ~/.bashrc` (Linux), or open a new terminal |
 | Poke rejects the URL | Use the `?token=` query parameter format instead of the Authorization header |
-| Linux: `lsb_release` not found | Install with `sudo apt install lsb-release` or `sudo dnf install redhat-lsb-core` |
-| Linux: cloudflared not in repo | Install the binary directly from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/ |
+| `npx poke` asks you to log in | Run `npx poke login` once, then relaunch |
+| `rg` (ripgrep) not found | macOS: `brew install ripgrep` · Linux: the launcher installs it via your package manager |
 
-For a permanent (stable) tunnel URL, create a named Cloudflare tunnel:
-https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/
+The launcher starts the tunnel with a stable `--name pokeclaw`, so re-running it reconnects the same named Poke tunnel.
 
 ---
 
@@ -286,7 +283,6 @@ This branch includes:
 - a new `system_info` MCP tool for quick runtime diagnostics
 - `/health` now returns auth and root-count details
 - `POKECLAW_LOG_LEVEL` for quieter or more verbose logs
-- a native macOS companion with menu bar status, auto-start on login, notifications, and log export
 
 ---
 

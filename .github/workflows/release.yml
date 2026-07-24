@@ -39,9 +39,9 @@ jobs:
 
           cp start-pokeclaw-mac.sh "$MAC_DIR/"
           cp start-pokeclaw-linux.sh "$LINUX_DIR/"
-          cp -R docs "$MAC_DIR/"
-          cp -R docs "$LINUX_DIR/"
-          # website is intentionally excluded from both release bundles.
+          # The landing page under website/ is intentionally excluded from the
+          # release bundles — it is published via GitHub Pages, not shipped with
+          # the runnable download.
 
           chmod +x "$MAC_DIR/start-pokeclaw-mac.sh" "$LINUX_DIR/start-pokeclaw-linux.sh"
 

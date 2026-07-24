@@ -9,28 +9,21 @@
 ##   POKECLAW_PORT            — port (default: 3741)
 ##   POKECLAW_ROOTS           — comma-separated allowed paths (default: $HOME)
 ##   POKECLAW_TOKEN           — secret auth token
-##   POKECLAW_TUNNEL_ENABLED  — 1 to enable cloudflared tunnel
-##   POKECLAW_TUNNEL_MODE     — quick | named (default: quick)
-##   POKECLAW_TUNNEL_NAME     — tunnel name for named mode (default: PokeClaw)
-##   POKECLAW_TUNNEL_HOSTNAME — optional DNS hostname for named mode
+##   POKECLAW_TUNNEL_ENABLED  — 1 to enable the Poke tunnel (default: 1)
 ##
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="$HOME/.pokeclaw"
 CONFIG_FILE="$CONFIG_DIR/launch.env"
-TUNNEL_CONFIG_FILE="$CONFIG_DIR/PokeClaw.yaml"
 PORT="${POKECLAW_PORT:-3741}"
 ROOTS="${POKECLAW_ROOTS:-$HOME}"
 TOKEN="${POKECLAW_TOKEN:-}"
-TUNNEL_ENABLED="${POKECLAW_TUNNEL_ENABLED:-}"
-TUNNEL_MODE="${POKECLAW_TUNNEL_MODE:-quick}"
-TUNNEL_NAME="${POKECLAW_TUNNEL_NAME:-PokeClaw}"
-TUNNEL_HOSTNAME="${POKECLAW_TUNNEL_HOSTNAME:-}"
+TUNNEL_ENABLED="${POKECLAW_TUNNEL_ENABLED:-1}"
 QUIET=false
 RUNTIME=""
 SERVER_PID=""
-CLOUDflared=""
+MENU_BAR_PID=""
 PM="unknown"
 
 for arg in "$@"; do
@@ -47,10 +40,51 @@ fi
 PORT="${POKECLAW_PORT:-${PORT:-3741}}"
 ROOTS="${POKECLAW_ROOTS:-${ROOTS:-$HOME}}"
 TOKEN="${POKECLAW_TOKEN:-${TOKEN:-}}"
-TUNNEL_ENABLED="${POKECLAW_TUNNEL_ENABLED:-${TUNNEL_ENABLED:-}}"
-TUNNEL_MODE="${POKECLAW_TUNNEL_MODE:-${TUNNEL_MODE:-quick}}"
-TUNNEL_NAME="${POKECLAW_TUNNEL_NAME:-${TUNNEL_NAME:-PokeClaw}}"
-TUNNEL_HOSTNAME="${POKECLAW_TUNNEL_HOSTNAME:-${TUNNEL_HOSTNAME:-}}"
+TUNNEL_ENABLED="${POKECLAW_TUNNEL_ENABLED:-${TUNNEL_ENABLED:-1}}"
+
+ensure_pm() {
+  if command -v apt-get >/dev/null 2>&1; then PM="apt"
+  elif command -v dnf >/dev/null 2>&1; then PM="dnf"
+  elif command -v pacman >/dev/null 2>&1; then PM="pacman"
+  else PM="unknown"
+  fi
+}
+
+# Install a package by name (binary name may differ, so pass both when needed).
+ensure_pkg() {
+  local binary="$1"
+  local pkg="${2:-$1}"
+  if command -v "$binary" >/dev/null 2>&1; then
+    return
+  fi
+  echo "   Installing ${pkg}…"
+  case "$PM" in
+    apt) sudo apt-get update -qq >/dev/null; sudo apt-get install -y "$pkg" ;;
+    dnf) sudo dnf install -y "$pkg" ;;
+    pacman) sudo pacman -Sy --noconfirm "$pkg" ;;
+    *) echo "❌  Unknown package manager. Please install '${pkg}' manually."; exit 1 ;;
+  esac
+}
+
+# Startup checks for required binaries
+check_binaries() {
+  if ! command -v npx >/dev/null 2>&1; then
+    echo "❌ Error: 'npx' is not installed. Please install Node.js (https://nodejs.org)."
+    exit 1
+  fi
+  if ! command -v rg >/dev/null 2>&1; then
+    echo "ℹ️   'rg' (ripgrep) is not installed — attempting to install it…"
+    ensure_pkg rg ripgrep
+  fi
+}
+
+check_poke_login() {
+  if ! npx poke login --check >/dev/null 2>&1; then
+    echo "⚠️  You are not logged in to Poke."
+    echo "   Running 'npx poke login' now..."
+    npx poke login
+  fi
+}
 
 save_config() {
   mkdir -p "$CONFIG_DIR"
@@ -59,9 +93,6 @@ save_config() {
     printf 'export POKECLAW_ROOTS=%q\n' "$ROOTS"
     printf 'export POKECLAW_TOKEN=%q\n' "$TOKEN"
     printf 'export POKECLAW_TUNNEL_ENABLED=%q\n' "$TUNNEL_ENABLED"
-    printf 'export POKECLAW_TUNNEL_MODE=%q\n' "$TUNNEL_MODE"
-    printf 'export POKECLAW_TUNNEL_NAME=%q\n' "$TUNNEL_NAME"
-    printf 'export POKECLAW_TUNNEL_HOSTNAME=%q\n' "$TUNNEL_HOSTNAME"
   } > "$CONFIG_FILE"
 }
 
@@ -82,7 +113,8 @@ confirm() {
   local default_value="${2:-Y}"
   local suffix="[Y/n]"
   local input=""
-  local default_upper="$(printf %s "$default_value" | tr "[:lower:]" "[:upper:]" | cut -c1)"
+  local default_upper
+  default_upper="$(printf %s "$default_value" | tr "[:lower:]" "[:upper:]" | cut -c1)"
   if [ "$default_upper" = "N" ]; then
     suffix="[y/N]"
   fi
@@ -91,28 +123,6 @@ confirm() {
   case "$(printf %s "$input" | tr "[:upper:]" "[:lower:]")" in
     y|yes) return 0 ;;
     *) return 1 ;;
-  esac
-}
-
-ensure_pm() {
-  if command -v apt-get >/dev/null 2>&1; then PM="apt"
-  elif command -v dnf >/dev/null 2>&1; then PM="dnf"
-  elif command -v pacman >/dev/null 2>&1; then PM="pacman"
-  else PM="unknown"
-  fi
-}
-
-ensure_pkg() {
-  local pkg="$1"
-  if command -v "$pkg" >/dev/null 2>&1; then
-    return
-  fi
-  echo "   Installing ${pkg}…"
-  case "$PM" in
-    apt) sudo apt-get update -qq >/dev/null; sudo apt-get install -y "$pkg" ;;
-    dnf) sudo dnf install -y "$pkg" ;;
-    pacman) sudo pacman -Sy --noconfirm "$pkg" ;;
-    *) echo "❌  Unknown package manager. Please install '${pkg}' manually."; exit 1 ;;
   esac
 }
 
@@ -136,91 +146,6 @@ ensure_runtime() {
       RUNTIME="node"
     fi
   fi
-}
-
-ensure_webview_runner() {
-  local runner="$CONFIG_DIR/webview-runner"
-  [ -f "$runner" ] && return 0
-  mkdir -p "$CONFIG_DIR"
-  cat > "$runner" << 'PYEOF'
-#!/usr/bin/env python3
-import sys, os
-
-args = sys.argv[1:]
-if not args:
-    sys.exit(1)
-
-html_path = args[0]
-width = int(args[1]) if len(args) > 1 else 800
-height = int(args[2]) if len(args) > 2 else 600
-
-try:
-    import gi
-    gi.require_version('Gtk', '3.0')
-    gi.require_version('WebKit2', '4.0')
-    from gi.repository import Gtk, WebKit2
-
-    win = Gtk.Window()
-    win.set_default_size(width, height)
-    win.set_title(args[3] if len(args) > 3 else os.path.splitext(os.path.basename(html_path))[0])
-    win.connect('destroy', Gtk.main_quit)
-
-    scroller = Gtk.ScrolledWindow()
-    webview = WebKit2.WebView()
-    webview.load_uri('file://' + os.path.abspath(html_path))
-    scroller.add(webview)
-
-    win.add(scroller)
-    win.show_all()
-    Gtk.main()
-except ImportError:
-    import subprocess
-    subprocess.run(['xdg-open', html_path])
-PYEOF
-  chmod +x "$runner"
-  echo "   ✅  Webview runner ready"
-}
-
-ensure_cloudflared() {
-  if command -v cloudflared >/dev/null 2>&1; then
-    CLOUDflared="$(command -v cloudflared)"
-    echo "✅  cloudflared already installed"
-    return
-  fi
-
-  echo ""
-  echo "Step 3 — Installing cloudflared…"
-  case "$PM" in
-    apt)
-      curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
-      echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" \
-        | sudo tee /etc/apt/sources.list.d/cloudflared.list >/dev/null
-      sudo apt-get update -qq
-      sudo apt-get install -y cloudflared
-      ;;
-    dnf)
-      curl -fsSL https://pkg.cloudflare.com/cloudflared-ascii.repo | sudo tee /etc/yum.repos.d/cloudflared.repo >/dev/null
-      sudo dnf install -y cloudflared
-      ;;
-    pacman)
-      if command -v yay >/dev/null 2>&1; then
-        yay -S --noconfirm cloudflared
-      elif command -v paru >/dev/null 2>&1; then
-        paru -S --noconfirm cloudflared
-      else
-        echo "⚠️   Please install cloudflared manually (AUR or binary):"
-        echo "    https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/"
-        exit 1
-      fi
-      ;;
-    *)
-      echo "❌  Cannot install cloudflared automatically. Please install it manually:"
-      echo "    https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/"
-      exit 1
-      ;;
-  esac
-  CLOUDflared="$(command -v cloudflared)"
-  echo "✅  cloudflared installed"
 }
 
 ensure_dependencies() {
@@ -257,71 +182,35 @@ find_port_pid() {
   printf '%s' "$pid"
 }
 
-write_tunnel_config() {
-  local tunnel_id="$1"
-  local credentials_file="$2"
-  mkdir -p "$CONFIG_DIR"
-  cat > "$TUNNEL_CONFIG_FILE" <<YAML
-tunnel: ${tunnel_id}
-credentials-file: ${credentials_file}
-ingress:
-  - service: http://127.0.0.1:${PORT}
-  - service: http_status:404
-YAML
-}
-
-create_named_tunnel() {
-  local output tunnel_id credentials_file route_output
-  output="$($CLOUDflared tunnel create "$TUNNEL_NAME" 2>&1 || true)"
-  tunnel_id="$(printf '%s\n' "$output" | grep -Eo '[0-9a-f]{8}-[0-9a-f-]{27,}' | head -n1 || true)"
-  credentials_file="$(printf '%s\n' "$output" | sed -nE 's/.*(\/[^[:space:]]+\.json).*/\1/p' | head -n1 || true)"
-
-  if [ -z "$tunnel_id" ]; then
-    echo "❌  Could not create or detect the named tunnel id for ${TUNNEL_NAME}."
-    echo "$output"
-    exit 1
-  fi
-
-  if [ -z "$credentials_file" ]; then
-    credentials_file="$CONFIG_DIR/${TUNNEL_NAME}.json"
-  fi
-
-  write_tunnel_config "$tunnel_id" "$credentials_file"
-
-  if [ -n "$TUNNEL_HOSTNAME" ]; then
-    route_output="$($CLOUDflared tunnel route dns "$TUNNEL_NAME" "$TUNNEL_HOSTNAME" 2>&1 || true)"
-    if [ -n "$route_output" ]; then
-      echo "$route_output"
-    fi
-  fi
-
-  echo "✅  PokeClaw tunnel ready"
-}
-
 run_tunnel() {
-  local tunnel_cmd
-  if [[ "$(printf %s "$TUNNEL_MODE" | tr '[:upper:]' '[:lower:]')" == "named" ]]; then
-    create_named_tunnel
-    tunnel_cmd=(tunnel --config "$TUNNEL_CONFIG_FILE" run "$TUNNEL_NAME")
-  else
-    tunnel_cmd=(tunnel --url "http://127.0.0.1:${PORT}")
-  fi
-
   echo ""
-  echo "🔗  PokeClaw tunnel ready"
-  "$CLOUDflared" "${tunnel_cmd[@]}"
+  echo "🔗  Connecting to Poke tunnel..."
+  npx poke tunnel http://localhost:"$PORT" --name pokeclaw
+}
+
+launch_menu_bar() {
+  (
+    while true; do
+      echo "PokeClaw Tunnel: Connected (tunnel.poke.com)" > "$CONFIG_DIR/status.txt"
+      sleep 10
+    done
+  ) &
+  MENU_BAR_PID=$!
 }
 
 cleanup() {
   if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
     kill "$SERVER_PID" 2>/dev/null || true
   fi
+  if [ -n "${MENU_BAR_PID:-}" ] && kill -0 "$MENU_BAR_PID" 2>/dev/null; then
+    kill "$MENU_BAR_PID" 2>/dev/null || true
+  fi
 }
 
 trap cleanup EXIT INT TERM
 
 echo ""
-echo "🐾  PokeClaw — Linux Setup & Launch"
+echo "🌴  PokeClaw — Linux Setup & Launch"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 ensure_pm
@@ -331,9 +220,8 @@ case "$PM" in
 esac
 
 ensure_pkg curl
+check_binaries
 ensure_runtime
-ensure_webview_runner
-ensure_cloudflared
 ensure_dependencies
 
 if [ "$QUIET" = false ]; then
@@ -351,13 +239,6 @@ if [ "$QUIET" = false ]; then
 
   if confirm '   Enable PokeClaw' Y; then
     TUNNEL_ENABLED=1
-    if confirm '   Use named tunnel mode' N; then
-      TUNNEL_MODE="named"
-      TUNNEL_NAME="$(prompt '   Tunnel name' "$TUNNEL_NAME")"
-      TUNNEL_HOSTNAME="$(prompt '   Hostname for the named tunnel (optional)' "$TUNNEL_HOSTNAME")"
-    else
-      TUNNEL_MODE="quick"
-    fi
   else
     TUNNEL_ENABLED=0
   fi
@@ -368,8 +249,11 @@ else
   echo "   POKECLAW_PORT           = ${PORT:-3741}"
   echo "   POKECLAW_ROOTS          = ${ROOTS:-$HOME}"
   echo "   POKECLAW_TOKEN          = $([ -n "$TOKEN" ] && echo '(set)' || echo '(not set)')"
-  echo "   POKECLAW_TUNNEL_ENABLED  = ${TUNNEL_ENABLED:-0}"
-  echo "   POKECLAW_TUNNEL_MODE     = ${TUNNEL_MODE:-quick}"
+  echo "   POKECLAW_TUNNEL_ENABLED = ${TUNNEL_ENABLED:-0}"
+fi
+
+if [ "$TUNNEL_ENABLED" = "1" ]; then
+  check_poke_login
 fi
 
 existing_pid="$(find_port_pid)"
@@ -381,6 +265,7 @@ if [ -n "$existing_pid" ]; then
 fi
 
 launch_server
+launch_menu_bar
 sleep 1
 
 echo ""
